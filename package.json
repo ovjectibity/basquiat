@@ -1,0 +1,15 @@
+{
+  "name": "pythagoras-figma-plugin",
+  "version": "1.0.0",
+  "description": "A Figma plugin template",
+  "main": "code.js",
+  "scripts": {
+    "build": "echo 'No build step required for basic plugin'"
+  },
+  "keywords": [
+    "figma",
+    "figma-plugin"
+  ],
+  "author": "",
+  "license": "MIT"
+}
