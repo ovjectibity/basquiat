@@ -2,8 +2,8 @@
   "name": "Pythagoras Plugin",
   "id": "0000000000000000",
   "api": "1.0.0",
-  "main": "code.js",
-  "ui": "ui.html",
+  "main": "dist/code.js",
+  "ui": "index.html",
   "editorType": [
     "figma",
     "figjam"

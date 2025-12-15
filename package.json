@@ -1,15 +1,36 @@
 {
   "name": "pythagoras-figma-plugin",
-  "version": "1.0.0",
-  "description": "A Figma plugin template",
-  "main": "code.js",
+  "version": "0.0.1",
+  "description": "Agent for building Figma Design files.",
+  "main": "dist/code.js",
   "scripts": {
-    "build": "echo 'No build step required for basic plugin'"
+    "build": "npm run build:ui && npm run build:code",
+    "build:ui": "node esbuild.ui.js",
+    "build:code": "esbuild src/code.ts --bundle --outfile=dist/code.js --target=es2017",
+    "watch": "npm run watch:ui & npm run watch:code",
+    "watch:ui": "node esbuild.ui.js --watch",
+    "watch:code": "esbuild src/code.ts --bundle --outfile=dist/code.js --target=es2017 --watch",
+    "dev": "npm run watch"
   },
   "keywords": [
     "figma",
-    "figma-plugin"
+    "figma-plugin",
+    "svelte",
+    "typescript"
   ],
   "author": "",
-  "license": "MIT"
+  "license": "MIT",
+  "devDependencies": {
+    "@figma/plugin-typings": "^1.97.0",
+    "@tsconfig/svelte": "^5.0.2",
+    "esbuild": "^0.19.11",
+    "esbuild-svelte": "^0.8.0",
+    "svelte": "^4.2.8",
+    "svelte-check": "^3.6.2",
+    "svelte-preprocess": "^5.1.3",
+    "tslib": "^2.6.2",
+    "typescript": "^5.3.3",
+    "@anthropic-ai/sdk": "^0.71.2",
+    "zod": "^4.2.0"
+  }
 }
