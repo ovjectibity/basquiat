@@ -18,14 +18,14 @@ export interface ClosePlugin {
 
 export type Command = MoveLayer | GetLayerVisual | CreateRectangle | ClosePlugin;
 
-export interface FigmaDesignToolResult {
+export interface FigmaDesignToolEvokeStatus {
     status: "success" | "failure"
     errorReason?: string
 }
 
 export interface FigmaDesignToolResult {
     type: "figma_design_tool_result",
-    content: FigmaDesignToolResult
+    content: FigmaDesignToolEvokeStatus
 }
 
 export type ToolResult = FigmaDesignToolResult;

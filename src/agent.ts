@@ -2,7 +2,9 @@ import Anthropic from "@anthropic-ai/sdk";
 import { ModelMessage, 
     UserModelMessage, 
     AssistantModelMessage, 
-    FigmaDesignToolInput} from "./messages";
+    FigmaDesignToolInput,
+    AssistantModelMessageO,
+    FigmaDesignToolEvokeStatus} from "./messages";
 import { Command } from "./messages.js";
 import { Tool as AnthTool } from "@anthropic-ai/sdk/resources";
 import { BetaContentBlockParam, BetaMessageParam } from "@anthropic-ai/sdk/resources/beta.mjs";
@@ -11,8 +13,8 @@ import { ModelMessageSchema, ModelMessageZ } from "./messagesschema.js";
 import { prompts } from "./prompts.js";
 
 interface CommandExecutor {
-    executeCommands(cmds: Command[]): Promise<void>;
-    executeCommand(cmd: Command): Promise<void>;
+    executeCommands(cmds: Command[]): Promise<FigmaDesignToolEvokeStatus>;
+    executeCommand(cmd: Command): Promise<FigmaDesignToolEvokeStatus>;
 }
 
 class FigmaAgentThread {
@@ -24,10 +26,12 @@ class FigmaAgentThread {
     executor: CommandExecutor;
     running: boolean = false;
     id: number;
+    userSurfaceCallback: (msg: string) => Promise<void>;
 
     constructor(id: number, model: string, 
         apiKey: string, 
-        executor: CommandExecutor) {
+        executor: CommandExecutor,
+        userSurfaceCb: (msg: string) => Promise<void>) {
         this.id = id;
         this.model = model;
         this.modelClient = new Anthropic({
@@ -36,6 +40,7 @@ class FigmaAgentThread {
         this.executor = executor;
         this.messages = new Array();
         this.anthMessages = new Array();
+        this.userSurfaceCallback = userSurfaceCb;
     }
 
     static getTools(): Array<AnthTool> {
@@ -61,7 +66,7 @@ class FigmaAgentThread {
         }
     }
 
-    async evokeModel(msg: UserModelMessage): Promise<void> {
+    async evokeModel(): Promise<void> {
         const modelOutput = await this.modelClient.beta.messages.create({
             model: this.model,
             max_tokens: this.maxTokens,
@@ -83,19 +88,49 @@ class FigmaAgentThread {
         }
     }
 
-    async processModelOutput(modelOutput: Array<BetaContentBlockParam>): Promise<void> {
-       for(let content of modelOutput) {
+    async processModelOutput(modelOutput: Array<BetaContentBlockParam>): Promise<any> {
+        let output: Array<Promise<void>> = new Array();
+        for(let content of modelOutput) {
             if(content.type === "tool_use") {
+                this.messages.push({
+                    role: "assistant",
+                    contents: [{
+                        type: "tool_use",
+                        name: "figma-design-tool",
+                        content: {
+                            input: content.input as FigmaDesignToolInput
+                        }
+                    }]
+                });
+                this.anthMessages.push({
+                    role: "user",
+                    content: [content]
+                });
                 if(content.name === "figma-design-tool") {
                     let id = content.id;
                     let input = content.input as FigmaDesignToolInput;
                     let cmdsResult = await this.executor.executeCommands(input.commands);
-                    this.evokeModel({
+                    this.messages.push({
                         role: "user",
-                        contents: []
+                        contents: [{
+                            type: "figma_design_tool_result",
+                            content: cmdsResult
+                        }]
                     });
+                    this.anthMessages.push({
+                        role: "user",
+                        content: [{
+                            tool_use_id: id,
+                            type: "tool_result",
+                            content: [{
+                                type: "text",
+                                text: JSON.stringify(cmdsResult)
+                            }]
+                        }]
+                    });
+                    return this.evokeModel();
                 } else {
-                    console.warn(`Unexpected tool invoked by the model ${content}`)
+                    output.push(Promise.reject(new Error(`Unexpected tool invoked by the model ${content}`)));
                 }
             } else if(content.type === "text") {
                 try {
@@ -105,10 +140,23 @@ class FigmaAgentThread {
                     if(validationResult.success) {
                         // console.log("Model output conforms to the schema, got this messages array: ",
                         // modifiedp.messages);
-                        let modifiedpv: AssistantModelMessage = modifiedp as AssistantModelMessage;
+                        let modifiedpv = modifiedp as AssistantModelMessageO;
                         this.messages.push(modifiedpv);
                         this.anthMessages.push(FigmaAgentThread.translateToAnthMessage(modifiedpv));
                         //TODO: Handle text to be surfaced to the user & that to be consumed by the agent 
+                        for(let mmContent of modifiedpv.contents) {
+                            if(mmContent.type === "user_output") {
+                                this.userSurfaceCallback(content.text);
+                            } else if(mmContent.type === "workflow_instruction") {
+                                if(mmContent.content === "stop") {
+                                    output.push(Promise.resolve());
+                                } else {
+                                    output.push(Promise.reject(
+                                        new Error(`Model returned workflow_instruction` + 
+                                            ` other than stop: ${content}`)));
+                                }
+                            }
+                        }
                     } else {
                         console.log("Model output message does not conform to the schema");
                         console.log("Validation errors:", validationResult.error);
@@ -116,7 +164,7 @@ class FigmaAgentThread {
                     }
                 } catch(e) {
                     console.log(`Parsing model output as JSON probably failed. Got LLM output ${content.text}`);
-                    console.log("Error when processing LLM response", e);
+                    output.push(Promise.reject(new Error(`Error when processing LLM response ${e}`)));
                 }
             } else if(content.type === "thinking") {
 
@@ -124,6 +172,7 @@ class FigmaAgentThread {
 
             }
         }
+        return Promise.all(output);
     }
 
     async ingestUserInput(message: string): Promise<void> {
