@@ -13,6 +13,8 @@
   let modelName: string = "claude-haiku-4-5-20251001";
   let isLoading = false;
   let cmdExec: CommandExecutor = new FigmaExecutor();
+  let showApiKeyOverlay = false;
+  let tempApiKey: string = "";
 
   let userOutputSurfacing = (msg: string): Promise<void> => {
     console.log(`Got message from the model for the user: ${msg}`);
@@ -96,12 +98,40 @@
   function onChatChange(chat: string) {
 
   }
+
+  function openApiKeyOverlay() {
+    tempApiKey = apiKey;
+    showApiKeyOverlay = true;
+  }
+
+  function closeApiKeyOverlay() {
+    showApiKeyOverlay = false;
+    tempApiKey = "";
+  }
+
+  function updateApiKey() {
+    apiKey = tempApiKey;
+    saveApiKey();
+    // Recreate the agent with the new API key
+    if (apiKey) {
+      currentThreadAgent = new FigmaAgentThread(
+        1,
+        modelName,
+        apiKey,
+        cmdExec,
+        userOutputSurfacing
+      );
+    }
+    closeApiKeyOverlay();
+  }
 </script>
 
 <div class="app">
-  <Header 
-  selectedChat={"chat-1"}
-  onChatChange={onChatChange} />
+  <Header
+    selectedChat={"chat-1"}
+    onChatChange={onChatChange}
+    onManageApiKeys={openApiKeyOverlay}
+  />
 
   <Messages {messages} {isLoading} />
 
@@ -113,4 +143,33 @@
     selectedModel={modelName}
     onModelChange={onModeChange}
   />
+
+  {#if showApiKeyOverlay}
+    <div class="overlay">
+      <div class="overlay-content">
+        <button class="close-button" on:click={closeApiKeyOverlay}>
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <path d="M12 4L4 12M4 4L12 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+        </button>
+
+        <h2 class="overlay-title">Manage API Keys</h2>
+
+        <div class="form-field">
+          <label for="api-key" class="form-label">Anthropic key</label>
+          <input
+            id="api-key"
+            type="text"
+            class="form-input"
+            bind:value={tempApiKey}
+            placeholder="Enter your Anthropic API key"
+          />
+        </div>
+
+        <button class="update-button" on:click={updateApiKey}>
+          Update
+        </button>
+      </div>
+    </div>
+  {/if}
 </div>
