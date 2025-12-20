@@ -4,11 +4,11 @@
   export let selectedChat: string;
   export let onChatChange: (chat: string) => void;
 
-  const chatOptions = [
-    { value: 'chat-1', label: 'Chat 1' },
-    { value: 'chat-2', label: 'Chat 2' },
-    { value: 'chat-3', label: 'Chat 3' }
-  ];
+  const chatOptions = new Map([
+    [ 'chat-1', 'Chat 1' ],
+    [ 'chat-2', 'Chat 2' ],
+    [ 'chat-3', 'Chat 3']
+  ]);
 
   const onSettings = () => void {
     
@@ -18,7 +18,7 @@
 <div class="header">
   <Dropdown
     items={chatOptions}
-    selectedValue={selectedChat}
+    selectedKey={selectedChat}
     onSelect={onChatChange}
     position="down"
   />

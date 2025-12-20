@@ -1,30 +1,113 @@
-import { FigmaDesignToolEvokeStatus } from "./messages";
-import { Command } from "./messages.js";
+import { ExecuteCommand, ExecuteCommandResult,
+    ExecuteCommands, ExecuteCommandsResult } from "./messages";
 
 interface CommandExecutor {
-    executeCommands(cmds: Command[]): Promise<FigmaDesignToolEvokeStatus>;
-    executeCommand(cmd: Command): Promise<FigmaDesignToolEvokeStatus>;
+    executeCommands(cmds: ExecuteCommands): Promise<ExecuteCommandsResult>;
+    executeCommand(cmd: ExecuteCommand): Promise<ExecuteCommandResult>;
+}
+
+class FigmaPluginCommandsDispatcher implements CommandExecutor {
+    private messageId: number = 0;
+    private pendingRequests: Map<number, {
+        resolve: (result: ExecuteCommandsResult) => void;
+        reject: (error: Error) => void;
+    }> = new Map();
+
+    constructor() {
+        // Listen for responses from the plugin
+        window.addEventListener('message', (event) => {
+            const msg = event.data.pluginMessage;
+            if (msg && msg.type === 'execute_commands_result') {
+                const pending = this.pendingRequests.get(msg.id);
+                if (pending) {
+                    pending.resolve(msg);
+                    this.pendingRequests.delete(msg.id);
+                }
+            }
+        });
+    }
+
+    executeCommands(cmds: ExecuteCommands): Promise<ExecuteCommandsResult> {
+        return new Promise((resolve, reject) => {
+            const id = this.messageId++;
+
+            // Store the promise handlers
+            this.pendingRequests.set(id, { resolve, reject });
+
+            // Send message to plugin with the id
+            const messageToSend: ExecuteCommands = {
+                type: "execute_commands",
+                id: id,
+                cmds: cmds.cmds
+            };
+
+            parent.postMessage({
+                pluginMessage: messageToSend
+            }, '*');
+
+            // Set timeout to reject after 30 seconds
+            setTimeout(() => {
+                const pending = this.pendingRequests.get(id);
+                if (pending) {
+                    pending.reject(new Error('Command execution timeout'));
+                    this.pendingRequests.delete(id);
+                }
+            }, 30000);
+        });
+    }
+
+    executeCommand(cmd: ExecuteCommand): Promise<ExecuteCommandResult> {
+        // For single command, wrap it in executeCommands and extract the result
+        return this.executeCommands({
+            type: "execute_commands",
+            id: cmd.id,
+            cmds: [cmd]
+        }).then((result) => {
+            if (result.cmds.length > 0) {
+                return result.cmds[0];
+            }
+            throw new Error('No command result returned');
+        });
+    }
 }
 
 class FigmaExecutor implements CommandExecutor {
-    async executeCommands(cmds: Command[]): Promise<FigmaDesignToolEvokeStatus> {
+    async executeCommands(executeCommands: ExecuteCommands): Promise<ExecuteCommandsResult> {
+        const results: ExecuteCommandResult[] = [];
+        let hasFailures = false;
+        let allFailed = true;
+
         try {
-            for (const cmd of cmds) {
-                const result = await this.executeCommand(cmd);
+            for (const executeCmd of executeCommands.cmds) {
+                const result = await this.executeCommand(executeCmd);
+                results.push(result);
+
                 if (result.status === "failure") {
-                    return result;
+                    hasFailures = true;
+                } else {
+                    allFailed = false;
                 }
             }
-            return { status: "success" };
+
+            return {
+                type: "execute_commands_result",
+                id: executeCommands.id,
+                cmds: results,
+                status: allFailed ? "failure" : (hasFailures ? "partial_failures" : "success")
+            };
         } catch (error) {
             return {
-                status: "failure",
-                errorReason: error instanceof Error ? error.message : String(error)
+                type: "execute_commands_result",
+                id: executeCommands.id,
+                cmds: results,
+                status: "failure"
             };
         }
     }
 
-    async executeCommand(cmd: Command): Promise<FigmaDesignToolEvokeStatus> {
+    async executeCommand(executeCmd: ExecuteCommand): Promise<ExecuteCommandResult> {
+        const cmd = executeCmd.cmd;
+
         try {
             switch (cmd.type) {
                 case "create-rectangle": {
@@ -44,7 +127,12 @@ class FigmaExecutor implements CommandExecutor {
                     }
 
                     figma.currentPage.appendChild(rect);
-                    return { status: "success" };
+                    return {
+                        type: "execute_command_result",
+                        id: executeCmd.id,
+                        cmd: cmd,
+                        status: "success"
+                    };
                 }
                 case "get-layer-visual": {
                     let node: SceneNode | null = null;
@@ -61,27 +149,36 @@ class FigmaExecutor implements CommandExecutor {
                     }
                     if (!node) {
                         return {
-                            status: "failure",
-                            errorReason: "No layer found to get visual"
+                            type: "execute_command_result",
+                            id: executeCmd.id,
+                            cmd: cmd,
+                            status: "failure"
                         };
                     }
                     let image = await node.exportAsync({ format: 'PNG' });
                     const base64Image = this.uint8ArrayToBase64(image);
                     return {
+                        type: "execute_command_result",
+                        id: executeCmd.id,
+                        cmd: cmd,
                         status: "success",
                         visual: base64Image
                     };
                 }
                 default:
                     return {
-                        status: "failure",
-                        errorReason: `Command type not implemented: ${(cmd as Command).type}`
+                        type: "execute_command_result",
+                        id: executeCmd.id,
+                        cmd: cmd,
+                        status: "failure"
                     };
             }
         } catch (error) {
             return {
-                status: "failure",
-                errorReason: error instanceof Error ? error.message : String(error)
+                type: "execute_command_result",
+                id: executeCmd.id,
+                cmd: cmd,
+                status: "failure"
             };
         }
     }
@@ -105,4 +202,5 @@ class FigmaExecutor implements CommandExecutor {
     }
 }
 
-export type { CommandExecutor, FigmaExecutor };
+export type { CommandExecutor };
+export { FigmaExecutor, FigmaPluginCommandsDispatcher };

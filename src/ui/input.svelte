@@ -8,11 +8,11 @@
   export let selectedModel: string;
   export let onModelChange: (model: string) => void;
 
-  const modelOptions = [
-    { value: 'claude-opus-4', label: 'Claude Opus 4' },
-    { value: 'claude-sonnet-4', label: 'Claude Sonnet 4' },
-    { value: 'claude-haiku-4', label: 'Claude Haiku 4' }
-  ];
+  const modelOptions = new Map([
+    ['claude-opus-4', 'Claude Opus 4' ],
+    ['claude-opus-4', 'Claude Sonnet 4' ],
+    ['claude-haiku-4-5-20251001', 'Claude Haiku 4.5' ]
+  ]);
 </script>
 
 <div class="input-container">
@@ -31,7 +31,7 @@
   <div class="input-controls">
     <Dropdown
       items={modelOptions}
-      selectedValue={selectedModel}
+      selectedKey={selectedModel}
       onSelect={onModelChange}
       disabled={isLoading}
       position="up"

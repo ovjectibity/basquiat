@@ -23,17 +23,60 @@ export interface ClosePlugin {
     type: "close_plugin"
 }
 
-export type Command = MoveLayer | GetLayerVisual | CreateRectangle | ClosePlugin;
+export interface GetApiKey {
+    type: "get_api_key"
+}
 
-export interface FigmaDesignToolEvokeStatus {
-    status: "success" | "failure"
-    errorReason?: string,
+export interface SetApiKey {
+    type: "set_api_key"
+    apiKey: string
+}
+
+export interface ApiKeyResponse {
+    type: "api_key_response"
+    apiKey: string | null
+}
+
+export interface ExecuteCommand {
+    type: "execute_command",
+    id: number, 
+    cmd: Command
+}
+
+export interface ExecuteCommands {
+    type: "execute_commands",
+    id: number, 
+    cmds: ExecuteCommand[]
+}
+
+export interface ExecuteCommandResult {
+    type: "execute_command_result",
+    cmd: Command,
+    id: number,
+    status: "success" | "failure",
     visual?: string
 }
 
+export interface ExecuteCommandsResult {
+    type: "execute_commands_result",
+    cmds: ExecuteCommandResult[],
+    id: number,
+    status: "success" | "failure" | "partial_failures"
+}
+
+export type Command = 
+    MoveLayer | GetLayerVisual | CreateRectangle | ClosePlugin;
+
+export type UIDispatchedMessage = 
+    GetApiKey | SetApiKey | 
+    ClosePlugin | ExecuteCommands;
+export type PluginDispatchedMessage = 
+    ApiKeyResponse | ExecuteCommandsResult;
+
 export interface FigmaDesignToolResult {
-    type: "figma_design_tool_result",
-    content: FigmaDesignToolEvokeStatus
+    type: "tool_result",
+    name: "figma-design-tool"
+    content: ExecuteCommandsResult
 }
 
 export type ToolResult = FigmaDesignToolResult;

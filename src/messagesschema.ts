@@ -37,3 +37,4 @@ export const ModelMessageZ = z.discriminatedUnion("role", [
 ]) satisfies z.ZodType<ModelMessageO>;
 
 export const ModelMessageSchema = z.toJSONSchema(ModelMessageZ) as any;
+export const AssistantModelMessageSchema = z.toJSONSchema(AssistantModelMessageZ) as any;

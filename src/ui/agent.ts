@@ -2,13 +2,13 @@ import Anthropic from "@anthropic-ai/sdk";
 import { ModelMessage, 
     UserModelMessage, 
     FigmaDesignToolInput,
-    AssistantModelMessageO } from "./messages";
-import { CommandExecutor } from "./executor.js";
+    AssistantModelMessageO } from "../messages.js";
+import { CommandExecutor } from "../executor.js";
 import { Tool as AnthTool } from "@anthropic-ai/sdk/resources";
 import { BetaContentBlockParam, BetaMessageParam } from "@anthropic-ai/sdk/resources/beta.mjs";
-import { FigmaDesignToolZ, FigmaDesignToolSchema } from "./figmatoolschema.js";
-import { ModelMessageSchema, ModelMessageZ } from "./messagesschema.js";
-import { prompts } from "./prompts.js";
+import { FigmaDesignToolZ, FigmaDesignToolSchema } from "../figmatoolschema.js";
+import { ModelMessageSchema, ModelMessageZ, AssistantModelMessageSchema } from "../messagesschema.js";
+import { prompts } from "../prompts.js";
 
 class FigmaAgentThread {
     maxTokens = 1024;
@@ -29,6 +29,7 @@ class FigmaAgentThread {
         this.model = model;
         this.modelClient = new Anthropic({
             apiKey: apiKey,
+            dangerouslyAllowBrowser: true
         });
         this.executor = executor;
         this.messages = new Array();
@@ -69,9 +70,11 @@ class FigmaAgentThread {
             tools: FigmaAgentThread.getTools(),
             output_format: {
                 type: "json_schema",
-                schema: ModelMessageSchema
+                schema: AssistantModelMessageSchema
             }
         });
+        console.debug(`Got this direct model output: ${modelOutput}`);
+        console.dir(modelOutput, { depth: null });
         if(modelOutput.stop_reason === "end_turn" || 
             modelOutput.stop_reason === "tool_use") {
             return this.processModelOutput(modelOutput.content);
@@ -106,7 +109,8 @@ class FigmaAgentThread {
                     this.messages.push({
                         role: "user",
                         contents: [{
-                            type: "figma_design_tool_result",
+                            type: "tool_result",
+                            name: "figma-design-tool",
                             content: cmdsResult
                         }]
                     });
@@ -168,18 +172,11 @@ class FigmaAgentThread {
         return Promise.all(output);
     }
 
-    async ingestUserInput(message: string): Promise<void> {
+    async ingestUserInput(userMessage: UserModelMessage): Promise<void> {
         if(this.running) {
             console.warn(`User messages when the model is running currently not supported. ` + 
-                `Ignoring this ${message}`);
+                `Ignoring this ${userMessage}`);
         } else {
-            const userMessage = {
-                role: "user",
-                contents: [{
-                    type: "user_input",
-                    content: ""
-                }]
-            } satisfies UserModelMessage;
             this.messages.push(userMessage);
             this.anthMessages.push(FigmaAgentThread.translateToAnthMessage(userMessage));
             const modelOutput = await this.modelClient.beta.messages.create({
@@ -191,9 +188,11 @@ class FigmaAgentThread {
                 tools: FigmaAgentThread.getTools(),
                 output_format: {
                     type: "json_schema",
-                    schema: ModelMessageSchema
+                    schema: AssistantModelMessageSchema
                 }
             });
+            console.debug(`Got this direct model output: ${modelOutput}`);
+            console.dir(modelOutput, { depth: null });
             if(modelOutput.stop_reason === "end_turn" || 
                 modelOutput.stop_reason === "tool_use") {
                 return this.processModelOutput(modelOutput.content);
@@ -204,3 +203,5 @@ class FigmaAgentThread {
         }
     }
 }
+
+export { FigmaAgentThread };

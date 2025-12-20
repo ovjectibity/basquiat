@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { ModelMessage } from "../commands.js";
+  import type { ModelMessage } from "../messages.js";
 
   export let messages: Array<ModelMessage>;
   export let isLoading: boolean;
@@ -13,9 +13,13 @@
   {:else}
     {#each messages as message}
       <div class="message {message.role}">
-        <div class="message-content">
-          <!-- {message.content} -->
-        </div>
+        {#each message.contents as content}
+          {#if content.type === "user_input" || content.type === "user_output"}
+            <div class="message-content">
+              {content.content}
+            </div>
+          {/if}
+        {/each}
       </div>
     {/each}
   {/if}

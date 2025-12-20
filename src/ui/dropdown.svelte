@@ -1,9 +1,9 @@
 <script lang="ts">
   import DropdownList from './dropdownlist.svelte';
 
-  export let items: Array<{ value: string; label: string }>;
-  export let selectedValue: string;
-  export let onSelect: (value: string) => void;
+  export let items: Map<string, string>;
+  export let selectedKey: string;
+  export let onSelect: (key: string) => void;
   export let disabled: boolean = false;
   export let position: 'up' | 'down' = 'down';
 
@@ -15,8 +15,8 @@
     }
   }
 
-  function selectItem(value: string) {
-    onSelect(value);
+  function selectItem(key: string) {
+    onSelect(key);
     isOpen = false;
   }
 
@@ -27,7 +27,7 @@
     }
   }
 
-  $: selectedLabel = items.find(item => item.value === selectedValue)?.label || '';
+  $: selectedKey = selectedKey
 </script>
 
 <svelte:window on:click={handleClickOutside} />
@@ -39,7 +39,7 @@
     {disabled}
     type="button"
   >
-    <span>{selectedLabel}</span>
+    <span>{items.get(selectedKey)}</span>
     <svg width="12" height="12" viewBox="0 0 12 12" fill="none" class="chevron" class:open={isOpen}>
       <path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
     </svg>
@@ -48,7 +48,7 @@
   {#if isOpen}
     <DropdownList
       {items}
-      {selectedValue}
+      selectedKey={selectedKey}
       {position}
       onSelect={selectItem}
     />
