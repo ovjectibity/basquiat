@@ -14,7 +14,7 @@
   let messages: Array<ModelMessage> = [];
   let modelName: string = "claude-haiku-4-5-20251001";
   let isLoading = false;
-  let cmdExec: CommandExecutor = new FigmaPluginCommandsDispatcher();
+  let cmdExec: CommandExecutor;
   let showApiKeyOverlay = false;
 
   let userOutputSurfacing = (msg: string): Promise<void> => {
@@ -29,6 +29,9 @@
   onMount(() => {
     try {
       console.log('App mounted');
+      // Initialize the command executor after component is mounted
+      cmdExec = new FigmaPluginCommandsDispatcher();
+
       setupNewThread().then(thread => {
         currentThreadAgent = thread;
       })
