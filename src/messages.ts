@@ -32,8 +32,8 @@ export interface SetApiKey {
     apiKey: string
 }
 
-export interface ApiKeyResponse {
-    type: "api_key_response"
+export interface GetApiKeyResponse {
+    type: "get_api_key_response"
     apiKey: string | null
 }
 
@@ -71,7 +71,7 @@ export type UIDispatchedMessage =
     GetApiKey | SetApiKey | 
     ClosePlugin | ExecuteCommands;
 export type PluginDispatchedMessage = 
-    ApiKeyResponse | ExecuteCommandsResult;
+    GetApiKeyResponse | ExecuteCommandsResult;
 
 export interface FigmaDesignToolResult {
     type: "tool_result",
@@ -82,7 +82,7 @@ export interface FigmaDesignToolResult {
 export type ToolResult = FigmaDesignToolResult;
 
 export interface FigmaDesignToolInput {
-    commands: Command[],
+    commands: ExecuteCommands,
     objective: string
 }
 

@@ -3,11 +3,11 @@ import { ModelMessage,
     UserModelMessage, 
     FigmaDesignToolInput,
     AssistantModelMessageO } from "../messages.js";
-import { CommandExecutor } from "../executor.js";
+import type { CommandExecutor } from "../common.js";
 import { Tool as AnthTool } from "@anthropic-ai/sdk/resources";
 import { BetaContentBlockParam, BetaMessageParam } from "@anthropic-ai/sdk/resources/beta.mjs";
 import { FigmaDesignToolZ, FigmaDesignToolSchema } from "../figmatoolschema.js";
-import { ModelMessageSchema, ModelMessageZ, AssistantModelMessageSchema } from "../messagesschema.js";
+import { ModelMessageZ, AssistantModelMessageSchema } from "../messagesschema.js";
 import { prompts } from "../prompts.js";
 
 class FigmaAgentThread {

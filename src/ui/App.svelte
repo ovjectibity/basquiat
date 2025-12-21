@@ -4,17 +4,18 @@
   import Header from './header.svelte';
   import Messages from './messages.svelte';
   import Input from './input.svelte';
+  import ManageKeysOverlay from './managekeysoverlay.svelte';
   import { FigmaAgentThread } from "./agent.js";
-  import { CommandExecutor, FigmaExecutor } from '../executor.js';
+  import type { CommandExecutor } from '../common.js';
+  import { FigmaPluginCommandsDispatcher } from './uicommandsexecutor.js';
 
   let apiKey: string = "";
   let userInput: string = "";
   let messages: Array<ModelMessage> = [];
   let modelName: string = "claude-haiku-4-5-20251001";
   let isLoading = false;
-  let cmdExec: CommandExecutor = new FigmaExecutor();
+  let cmdExec: CommandExecutor = new FigmaPluginCommandsDispatcher();
   let showApiKeyOverlay = false;
-  let tempApiKey: string = "";
 
   let userOutputSurfacing = (msg: string): Promise<void> => {
     console.log(`Got message from the model for the user: ${msg}`);
@@ -28,29 +29,46 @@
   onMount(() => {
     try {
       console.log('App mounted');
-      // Request API key from main thread
-      parent.postMessage({ pluginMessage: { type: 'get_api_key' } }, '*');
-      // Listen for API key response
-      window.addEventListener('message', (event) => {
-        const msg = event.data.pluginMessage;
-        if(msg && msg.type === 'api_key_response') {
-          if(msg.apiKey) {
-            apiKey = msg.apiKey;
-            // Recreate the agent with the loaded API key
-            currentThreadAgent = new FigmaAgentThread(
-              1,
-              modelName,
-              apiKey,
-              cmdExec,
-              userOutputSurfacing
-            );
-          }
-        }
+      setupNewThread().then(thread => {
+        currentThreadAgent = thread;
+      })
+      .catch(e => {
+        console.error(e);
+        console.dir(e);
       });
     } catch (error) {
       console.error('Error in onMount:', error);
     }
   });
+
+  function setupNewThread(): Promise<FigmaAgentThread> {
+    if(apiKey === "") {
+      parent.postMessage({ pluginMessage: { type: 'get_api_key' } }, '*');
+      return new Promise((res,rej) => {
+        // Listen for API key response
+        window.addEventListener('message', (event) => {
+          const msg = event.data.pluginMessage;
+          if(msg && msg.type === 'get_api_key_response' && msg.apiKey) {
+            apiKey = msg.apiKey;
+          } else {
+            rej(new Error(`Couldn't obtain API key ${event}`));
+          }
+        });
+        setTimeout(() => {
+          rej(new Error(`Timed out fetching API key`));
+        },1500);
+      }).then((key: string) => {
+          // Recreate the agent with the loaded API key
+          return new FigmaAgentThread(
+            1,
+            modelName,
+            key,
+            cmdExec,
+            userOutputSurfacing
+          );
+      }).catch(err => err);  
+    }
+  }
 
   function saveApiKey() {
     parent.postMessage({
@@ -69,14 +87,7 @@
     }
   }
 
-  async function sendMessage() {
-    if (!userInput.trim() || isLoading) return;
-
-    if(!apiKey) {
-      alert('Please set your API key in settings first');
-      return;
-    }
-
+  function processUserMessage() {
     const message = userInput.trim();
     userInput = "";
     const userMessage = {
@@ -91,6 +102,27 @@
     currentThreadAgent.ingestUserInput(userMessage);
   }
 
+  async function sendMessage() {
+    if (!userInput.trim() || isLoading) return;
+
+    if(!apiKey) {
+      alert('Please set your API key in settings first');
+      return;
+    } else if(!currentThreadAgent) {
+      console.log(`Setting up a new thread given none is initialised currently`);
+      setupNewThread().then(thread => {
+        currentThreadAgent = thread;
+        processUserMessage();
+      })
+      .catch(e => {
+        console.error(e);
+        console.dir(e);
+      });
+    } else {
+      processUserMessage();
+    }
+  }
+
   function onModeChange(modelKey: string) {
 
   }
@@ -100,17 +132,15 @@
   }
 
   function openApiKeyOverlay() {
-    tempApiKey = apiKey;
     showApiKeyOverlay = true;
   }
 
   function closeApiKeyOverlay() {
     showApiKeyOverlay = false;
-    tempApiKey = "";
   }
 
-  function updateApiKey() {
-    apiKey = tempApiKey;
+  function handleUpdateApiKey(newApiKey: string) {
+    apiKey = newApiKey;
     saveApiKey();
     // Recreate the agent with the new API key
     if (apiKey) {
@@ -145,31 +175,10 @@
   />
 
   {#if showApiKeyOverlay}
-    <div class="overlay">
-      <div class="overlay-content">
-        <button class="close-button" on:click={closeApiKeyOverlay}>
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-            <path d="M12 4L4 12M4 4L12 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-          </svg>
-        </button>
-
-        <h2 class="overlay-title">Manage API Keys</h2>
-
-        <div class="form-field">
-          <label for="api-key" class="form-label">Anthropic key</label>
-          <input
-            id="api-key"
-            type="text"
-            class="form-input"
-            bind:value={tempApiKey}
-            placeholder="Enter your Anthropic API key"
-          />
-        </div>
-
-        <button class="update-button" on:click={updateApiKey}>
-          Update
-        </button>
-      </div>
-    </div>
+    <ManageKeysOverlay
+      {apiKey}
+      onClose={closeApiKeyOverlay}
+      onUpdate={handleUpdateApiKey}
+    />
   {/if}
 </div>

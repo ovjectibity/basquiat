@@ -2,7 +2,7 @@
   "name": "Basquiat",
   "id": "0000000000000000",
   "api": "1.0.0",
-  "main": "dist/code.js",
+  "main": "dist/plugin.js",
   "ui": "index.html",
   "editorType": [
     "figma",

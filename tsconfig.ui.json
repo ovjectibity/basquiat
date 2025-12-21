@@ -13,6 +13,6 @@
     "isolatedModules": true,
     "noEmit": true
   },
-  "include": ["src/ui/**/*"],
+  "include": ["src/ui/**/*", "src/common.ts"],
   "exclude": ["node_modules", "dist"]
 }
