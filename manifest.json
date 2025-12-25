@@ -4,13 +4,17 @@
   "api": "1.0.0",
   "main": "dist/plugin.js",
   "ui": "index.html",
+  "documentAccess": "dynamic-page",
   "editorType": [
-    "figma",
-    "figjam"
+    "figma"
+  ],
+  "permissions": [
+    "teamlibrary"
   ],
   "networkAccess": {
     "allowedDomains": [
-      "https://api.anthropic.com"
+      "https://api.anthropic.com",
+      "wss://api.anthropic.com"
     ]
   }
 }

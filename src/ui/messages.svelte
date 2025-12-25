@@ -27,7 +27,7 @@
               Invoking Figma tool: 
               {content.content.input.objective}
             </div>
-          {:else if content.type === "tool_use_result" && content.name === "figma-design-tool"}
+          {:else if content.type === "tool_result" && content.name === "figma-design-tool"}
             <div class="message-content">
               Got this result from the Figma tool:
               {content.content.status}

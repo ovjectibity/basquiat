@@ -12,10 +12,11 @@
   let apiKey: string = $state("");
   let userInput: string = $state("");
   let messages: Array<ModelMessage> = $state([]);
-  let modelName: string = "claude-haiku-4-5-20251001";
+  let modelName: string = $state("claude-haiku-4-5-20251001");
   let isLoading = false;
   let cmdExec: CommandExecutor;
   let showApiKeyOverlay = $state(false);
+  let threadsMap = new Map<string,FigmaAgentThread>();
 
   let userOutputSurfacing = (msg: string): Promise<void> => {
     console.log(`Got message from the model for the user: ${msg}`);
@@ -127,7 +128,6 @@
   }
 
   function onModeChange(modelKey: string) {
-
   }
 
   function onChatChange(chat: string) {

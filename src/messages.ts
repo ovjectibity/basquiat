@@ -1,7 +1,60 @@
+//visual: 
+// Scene: hide, show, remove
+// Create & remove 
+// relations: grouping, parenting, childing, 
+// Layout: position, sizing, 
+// Navigate: Change view 
+// Orient: 
+// The nodes might have been removed
+
+export interface LayoutProperties {
+    x?: number,
+    y?: number,
+    sizeX?: number,
+    sizeY?: number,
+    topLeftRadius?: number,
+    topRightRadius?: number,
+    bottomLeftRadius?: number,
+    bottomRightRadius?: number,
+    cornerSmoothing?: number
+}
+
+export interface SolidPaint {
+    color: string
+}
+
+export type Paint = SolidPaint
+
+export interface VisualProperties {
+    fill: string,
+    opacity: number
+}
+
+export interface RelationalProperties {
+    parentNode: number
+}
+
+export interface SceneProperties {
+    visible: boolean,
+    locked: boolean
+}
+
+export interface CreateNode {
+    type: "create-node",
+    nodeName: "rectangle" | "frame" | "group" | 
+        "page" | "text" | "line" | 
+        "instance",
+    dimension?: LayoutProperties,
+    visual?: VisualProperties
+}
+
+export interface RemoveNode {
+    id: number
+}
+
 export interface CreateRectangle {
   type: "create-rectangle"
-  x: number
-  y: number
+  position: LayoutProperties,
   width: number
   height: number
   fill?: string
