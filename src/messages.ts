@@ -92,20 +92,20 @@ export interface GetApiKeyResponse {
 
 export interface ExecuteCommand {
     type: "execute_command",
-    id: number, 
+    id: string, 
     cmd: Command
 }
 
 export interface ExecuteCommands {
     type: "execute_commands",
-    id: number, 
+    id: string, 
     cmds: ExecuteCommand[]
 }
 
 export interface ExecuteCommandResult {
     type: "execute_command_result",
     cmd: Command,
-    id: number,
+    id: string,
     status: "success" | "failure",
     visual?: string
 }
@@ -113,7 +113,7 @@ export interface ExecuteCommandResult {
 export interface ExecuteCommandsResult {
     type: "execute_commands_result",
     cmds: ExecuteCommandResult[],
-    id: number,
+    id: string,
     status: "success" | "failure" | "partial_failures"
 }
 
@@ -155,12 +155,12 @@ export interface UserInput {
 }
 
 export interface AssistantWorkflowInstruction {
-    type: "workflow_instruction",
+    type: "assistant_workflow_instruction",
     content: "stop"
 }
 
 export interface AgentWorkflowInstruction {
-    type: "workflow_instruction",
+    type: "agent_workflow_instruction",
     content: string
 }
 

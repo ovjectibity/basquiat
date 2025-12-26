@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import type { ModelMessage, UserModelMessage } from "../messages.js";
+  import type { ModelMessage, UserModelMessage, UserOutput } from "../messages.js";
   import Header from './header.svelte';
   import Messages from './messages.svelte';
   import Input from './input.svelte';
@@ -18,7 +18,7 @@
   let showApiKeyOverlay = $state(false);
   let threadsMap = new Map<string,FigmaAgentThread>();
 
-  let userOutputSurfacing = (msg: string): Promise<void> => {
+  let userOutputSurfacing = (msg: Array<UserOutput>) => {
     console.log(`Got message from the model for the user: ${msg}`);
     messages = [...currentThreadAgent.messages];
     return;
@@ -61,9 +61,9 @@
         setTimeout(() => {
           rej(new Error(`Timed out fetching API key`));
         },1500);
-      }).then((key: string) => {
+      }).then(async (key: string) => {
           // Recreate the agent with the loaded API key
-          return new FigmaAgentThread(
+          await new FigmaAgentThread(
             1,
             modelName,
             key,
@@ -103,7 +103,10 @@
     } satisfies UserModelMessage;
     messages.push(userMessage);
     messages = [...messages];
-    currentThreadAgent.ingestUserInput(userMessage);
+    currentThreadAgent.ingestUserInput(userMessage)
+    .catch(e => {
+      console.error(e);
+    });
   }
 
   async function sendMessage() {
