@@ -14,12 +14,41 @@ import { BetaContentBlockParam, BetaMessageParam } from "@anthropic-ai/sdk/resou
 
 interface ModelProvider {
     type: string;
-    ingestMessage(msg: ModelMessage): Promise<ModelMessage>;
     maxTokens: number;
+    ingestMessage(msg: ModelMessage): Promise<ModelMessage>;
 }
 
 interface ToolsConfig {
     figma: boolean
+}
+
+class GoogleAIModels implements ModelProvider {
+    type = "google";
+    maxTokens = 1024;
+    googleMessages: Array<number>;
+    model: string;
+    modelClient: Anthropic;
+    systemPrompt: string;
+    tools: ToolsConfig;
+    
+    constructor(
+        model: string, 
+        apiKey: string,
+        systemPrompt: string, 
+        tools: ToolsConfig) {
+        this.googleMessages = new Array();
+        this.modelClient = new Anthropic({
+            apiKey: apiKey,
+            dangerouslyAllowBrowser: true
+        });
+        this.systemPrompt = systemPrompt;
+        this.model = model;
+        this.tools = tools;
+    }
+
+    ingestMessage(msg: ModelMessage): Promise<ModelMessage> {
+
+    }
 }
 
 class AnthropicModel implements ModelProvider {
@@ -29,7 +58,7 @@ class AnthropicModel implements ModelProvider {
     model: string;
     modelClient: Anthropic;
     systemPrompt: string;
-    tools: ToolsConfig
+    tools: ToolsConfig;
     
     constructor(
         model: string, 

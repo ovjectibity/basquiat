@@ -1,10 +1,17 @@
 import { ModelMessage, 
     UserModelMessage, 
     AssistantModelMessage, 
-    UserOutput} from "../messages.js";
+    UserOutput, 
+    FigmaDesignToolInput 
+} from "../messages.js";
 import type { CommandExecutor } from "../common.js";
 import { AnthropicModel } from "./modelprovider.js";
 import { prompts } from "../prompts.js";
+
+interface ProcessedModelOutput {
+    userOutput: Array<UserOutput>,
+    toolInput?: FigmaDesignToolInput
+}
 
 class FigmaAgentThread {
     messages: Array<ModelMessage>;
@@ -12,9 +19,10 @@ class FigmaAgentThread {
     id: number;
     model: AnthropicModel;
     userSurfacingCb: (msg: Array<UserOutput>) => void;
+    status: "waiting-for-user" | "running" = "waiting-for-user";
 
     constructor(id: number, 
-        model: string, 
+        model: string,
         apiKey: string, 
         executor: CommandExecutor,
         userSurfacingCb: (msg: Array<UserOutput>) => void) {
@@ -31,53 +39,59 @@ class FigmaAgentThread {
         this.userSurfacingCb = userSurfacingCb;
     }
 
-    /** Only surface assistant messages to be consumed by the user */
-    async processModelOutput(modelOutput: AssistantModelMessage): 
-    Promise<Array<UserOutput>> {
-        let output: Array<Promise<UserOutput> | UserOutput> = new Array();
+    processModelOutput(modelOutput: AssistantModelMessage): ProcessedModelOutput
+     {
+        let userOutput: Array<UserOutput> = new Array();
+        let toolInput: undefined | FigmaDesignToolInput = undefined;
         for(let content of modelOutput.contents) {
             if(content.type === "tool_use") {
                 if(content.name === "figma-design-tool") {
-                    let cmdsResult = await this.executor.executeCommands(
-                        content.content.input.commands);
-                    const userMsg: UserModelMessage = {
-                        role: "user",
-                        contents: [{
-                            type: "tool_result",
-                            name: "figma-design-tool",
-                            content: cmdsResult
-                        }]
-                    };
-                    this.messages.push(userMsg);
-                    const toolresult = await this.model.ingestMessage(userMsg);
-                    this.messages.push(toolresult);
-                    let toolResultResponse = await this.processModelOutput(toolresult);
-                    output = output.concat(toolResultResponse);
+                    toolInput = content.content.input;
                 } else {
-                    output.push(Promise.reject(new Error(`Unexpected tool invoked by the model ${content}`)));
+                    console.error(`Model tried invoking an unexpected tool ${content}`);
                 }
             } else if(content.type === "assistant_workflow_instruction") {
                 if(content.content === "stop") {
                     //TODO: Stop does nothing for now? 
                 } else {
-                    output.push(Promise.reject(
-                        new Error(`Model returned workflow_instruction` + 
-                            ` other than stop: ${content}`)));
+                    console.error(`Model invoked an unexpected workflow instruction ${content}`);
                 }
             } else if(content.type === "user_output") {
-                output.push(content);
+                userOutput.push(content);
             }
         }
-        return Promise.all(output);
+        return {
+            userOutput: userOutput,
+            toolInput: toolInput
+        }
     }
 
-    async ingestUserInput(userMessage: UserModelMessage) {
+    //TODO: Handle user interruptions: 
+    async ingestUserInput(userMessage: UserModelMessage): Promise<void> {
         this.messages.push(userMessage);
-        const modelOutput = await this.model.ingestMessage(userMessage);
-        //Perform this push directly within the processModelOutput method?
-        this.messages.push(modelOutput);
-        let userOutput = await this.processModelOutput(modelOutput);
-        this.userSurfacingCb(userOutput);
+        this.status = "running";
+        while(this.status === "running") {
+            const modelOutput = await this.model.ingestMessage(userMessage);
+            this.messages.push(modelOutput);
+            let processedOutput = await this.processModelOutput(modelOutput);
+            this.userSurfacingCb(processedOutput.userOutput);
+            if(processedOutput.toolInput) {
+                let cmdsResult = await this.executor.executeCommands(
+                    processedOutput.toolInput.commands);
+                userMessage = {
+                    role: "user",
+                    contents: [{
+                        type: "tool_result",
+                        name: "figma-design-tool",
+                        content: cmdsResult
+                    }]
+                };
+                this.messages.push(userMessage);
+            } else {
+                this.status = "waiting-for-user";
+                return Promise.resolve();
+            } 
+        }
     }
 }
 
