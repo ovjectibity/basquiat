@@ -1,5 +1,5 @@
 import { ExecuteCommand, ExecuteCommandResult,
-    ExecuteCommands, ExecuteCommandsResult } from "../messages";
+    ExecuteCommands, ExecuteCommandsResult } from "../figmacommands";
 import { CommandExecutor } from "../common";
 
 export class FigmaPluginCommandsDispatcher implements CommandExecutor {
