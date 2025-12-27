@@ -3,8 +3,7 @@ import { ExecuteCommand, ExecuteCommandResult,
 import { CommandExecutor } from "../common";
 
 export class FigmaPluginCommandsDispatcher implements CommandExecutor {
-    private messageId: number = 0;
-    private pendingRequests: Map<number, {
+    private pendingRequests: Map<string, {
         resolve: (result: ExecuteCommandsResult) => void;
         reject: (error: Error) => void;
     }> = new Map();
@@ -25,20 +24,14 @@ export class FigmaPluginCommandsDispatcher implements CommandExecutor {
 
     executeCommands(cmds: ExecuteCommands): Promise<ExecuteCommandsResult> {
         return new Promise((resolve, reject) => {
-            const id = this.messageId++;
+            // const id = this.messageId++;
+            const id = cmds.id;
 
             // Store the promise handlers
-            this.pendingRequests.set(id, { resolve, reject });
-
-            // Send message to plugin with the id
-            const messageToSend: ExecuteCommands = {
-                type: "execute_commands",
-                id: id,
-                cmds: cmds.cmds
-            };
+            this.pendingRequests.set(cmds.id, { resolve, reject });
 
             parent.postMessage({
-                pluginMessage: messageToSend
+                pluginMessage: cmds
             }, '*');
 
             // Set timeout to reject after 30 seconds

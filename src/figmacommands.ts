@@ -14,6 +14,9 @@
  * 5. Frame propertires -> DONE
  * 6. Navigation: 
  *      Change current page ->  
+ *      Get all nodes in the current page -> 
+ *      Get visual (selected node, current page) -> 
+ *      Get info on all pages
  *      view current page -> 
  *      view selection ->
  *      Get selection ->  
@@ -32,7 +35,7 @@
  * - All properties are optional.
  * - 'null' unions have been removed.
  */
-interface LayoutProperties {
+export interface LayoutProperties {
   // --- Base Layout (Coordinate System) ---
   
   /** The position of the node relative to its parent. */
@@ -93,7 +96,8 @@ interface LayoutProperties {
    * 'HORIZONTAL' = Row
    * 'VERTICAL' = Column
    */
-  layoutMode?: 'NONE' | 'HORIZONTAL' | 'VERTICAL';
+  layoutMode?: 'NONE' | 'HORIZONTAL' | 'VERTICAL' | 'GRID';
+//   layoutMode?: 'NONE' | 'HORIZONTAL' | 'VERTICAL';
 
   /** Wrapping behavior for Auto Layout (e.g., multiline flex). */
   layoutWrap?: 'NO_WRAP' | 'WRAP';
@@ -185,7 +189,7 @@ interface LayoutProperties {
  * - All properties are optional.
  * - 'null' unions have been removed.
  */
-interface VisualProperties {
+export interface VisualProperties {
   // --- Blend Properties (Opacity & Effects) ---
   
   /** The opacity of the layer (0 to 1). */
@@ -245,7 +249,8 @@ interface VisualProperties {
   strokeWeight?: number | typeof figma.mixed;
   
   /** Alignment of the stroke ('INSIDE', 'OUTSIDE', 'CENTER'). */
-  strokeAlign?: 'MIN' | 'CENTER' | 'MAX'; // Note: Figma API maps these to INSIDE/CENTER/OUTSIDE often, but internal types use MIN/MAX logic sometimes. 'INSIDE' | 'OUTSIDE' | 'CENTER' is the standard string union for this property.
+  strokeAlign?: 'CENTER' | 'INSIDE' | 'OUTSIDE';
+//   strokeAlign?: 'MIN' | 'CENTER' | 'MAX'; // Note: Figma API maps these to INSIDE/CENTER/OUTSIDE often, but internal types use MIN/MAX logic sometimes. 'INSIDE' | 'OUTSIDE' | 'CENTER' is the standard string union for this property.
   
   /** Decoration at the ends of open paths ('NONE', 'ROUND', 'SQUARE', etc.). */
   strokeCap?: StrokeCap | typeof figma.mixed;
@@ -283,7 +288,7 @@ interface VisualProperties {
  * - Readonly modifiers removed
  * - Null unions removed
  */
-interface FrameProperties {
+export interface FrameProperties {
   /** * Includes the id or key of the component the node was detached from.
    * (Typically read-only in the API, but mutable here per request).
    */
@@ -413,7 +418,7 @@ interface FrameProperties {
  * - All properties are optional.
  * - 'null' unions have been removed.
  */
-interface SceneProperties {
+export interface SceneProperties {
   // --- Basic State ---
   /** Whether the node is visible on the canvas. */
   visible?: boolean;
@@ -484,7 +489,7 @@ export interface GetLayerVisual {
 
 export type Command = 
     CreateNode | EditNodeProperties | 
-    GetNodeInfoResult | RemoveNode | 
+    GetNodeInfo | RemoveNode | 
     GetLayerVisual | GetCurrentSelectedNodes;
 
 export interface ExecuteCommand {

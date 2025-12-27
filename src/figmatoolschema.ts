@@ -100,7 +100,7 @@ const LayoutPropertiesZ = z.object({
   maxWidth: z.number().optional(),
   minHeight: z.number().optional(),
   maxHeight: z.number().optional(),
-  layoutMode: z.enum(['NONE', 'HORIZONTAL', 'VERTICAL']).optional(),
+  layoutMode: z.enum(['NONE', 'HORIZONTAL', 'VERTICAL', 'GRID']).optional(),
   layoutWrap: z.enum(['NO_WRAP', 'WRAP']).optional(),
   itemSpacing: z.number().optional(),
   counterAxisSpacing: z.number().optional(),
@@ -147,7 +147,7 @@ const VisualPropertiesZ = z.object({
   strokes: z.array(PaintZ).optional(),
   strokeStyleId: z.string().optional(),
   strokeWeight: z.union([z.number(), z.literal('figma.mixed')]).optional(),
-  strokeAlign: z.enum(['MIN', 'CENTER', 'MAX']).optional(),
+  strokeAlign: z.enum(['CENTER', 'INSIDE', 'OUTSIDE']).optional(),
   strokeCap: z.union([StrokeCapZ, z.literal('figma.mixed')]).optional(),
   strokeJoin: z.union([StrokeJoinZ, z.literal('figma.mixed')]).optional(),
   dashPattern: z.array(z.number()).optional(),
@@ -225,7 +225,7 @@ const GetNodeInfoZ = z.object({
   needed: z.array(NodeInfoItemsZ),
 }).describe("Command to get information about a node");
 
-const GetNodeInfoResultZ = z.object({
+export const GetNodeInfoResultZ = z.object({
   type: z.literal("get-node-info-result"),
   id: z.string(),
   name: z.string().optional(),
@@ -253,7 +253,7 @@ const GetLayerVisualZ = z.object({
 export const CommandZ = z.discriminatedUnion("type", [
   CreateNodeZ,
   EditNodePropertiesZ,
-  GetNodeInfoResultZ, // Note: This is a result, not an executable command, but included in Command union in figmacommands.ts
+  GetNodeInfoZ,
   RemoveNodeZ,
   GetCurrentSelectedNodesZ,
   GetLayerVisualZ,
