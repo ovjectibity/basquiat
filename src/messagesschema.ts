@@ -1,5 +1,6 @@
 import { z } from 'zod';
-import type { ModelMessage, ModelMessageO } from './messages';
+import type { ModelMessage } from './messages';
+import { FigmaDesignToolZ, ExecuteCommandsResultZ } from './figmatoolschema';
 
 const UserInputZ = z.object({
   type: z.literal("user_input"),
@@ -7,7 +8,7 @@ const UserInputZ = z.object({
 });
 
 const AgentWorkflowInstructionZ = z.object({
-  type: z.literal("workflow_instruction"),
+  type: z.literal("agent_workflow_instruction"),
   content: z.string()
 });
 
@@ -17,24 +18,54 @@ const UserOutputZ = z.object({
 });
 
 const AssistantWorkflowInstructionZ = z.object({
-  type: z.literal("workflow_instruction"),
+  type: z.literal("assistant_workflow_instruction"),
   content: z.literal("stop")
 });
 
-const UserModelMessageZ = z.object({
-  role: z.literal("user"),
-  contents: z.array(z.union([UserInputZ, AgentWorkflowInstructionZ]))
+const FigmaDesignToolResultZ = z.object({
+  type: z.literal("tool_result"),
+  name: z.literal("figma-design-tool"),
+  content: ExecuteCommandsResultZ,
 });
 
-const AssistantModelMessageZ = z.object({
+const ToolResultZ = FigmaDesignToolResultZ;
+
+const FigmaDesignToolUseZ = z.object({
+  type: z.literal("tool_use"),
+  name: z.literal("figma-design-tool"),
+  content: z.object({
+    input: FigmaDesignToolZ,
+  }),
+});
+
+const ToolUseZ = FigmaDesignToolUseZ;
+
+const UserModelMessageContentsZ = z.union([
+  UserInputZ, 
+  AgentWorkflowInstructionZ, 
+  ToolResultZ
+]);
+
+const AssistantModelMessageContentsZ = z.union([
+  UserOutputZ, 
+  AssistantWorkflowInstructionZ, 
+  ToolUseZ
+]);
+
+export const UserModelMessageZ = z.object({
+  role: z.literal("user"),
+  contents: z.array(UserModelMessageContentsZ)
+});
+
+export const AssistantModelMessageZ = z.object({
   role: z.literal("assistant"),
-  contents: z.array(z.union([UserOutputZ, AssistantWorkflowInstructionZ]))
+  contents: z.array(AssistantModelMessageContentsZ)
 });
 
 export const ModelMessageZ = z.discriminatedUnion("role", [
   UserModelMessageZ,
   AssistantModelMessageZ
-]) satisfies z.ZodType<ModelMessageO>;
+]) satisfies z.ZodType<ModelMessage>;
 
 export const ModelMessageSchema = z.toJSONSchema(ModelMessageZ) as any;
 export const AssistantModelMessageSchema = z.toJSONSchema(AssistantModelMessageZ) as any;

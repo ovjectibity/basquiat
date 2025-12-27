@@ -33,7 +33,6 @@ class FigmaAgentThread {
             {
                 figma: true
             });
-        
         this.executor = executor;
         this.messages = new Array();
         this.userSurfacingCb = userSurfacingCb;

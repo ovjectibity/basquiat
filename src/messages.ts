@@ -1,18 +1,10 @@
 import { 
-    MoveLayer, GetLayerVisual, 
-    CreateRectangle
+    ExecuteCommands, ExecuteCommandsResult
 } from "./figmacommands.js";
 
 export interface ClosePlugin {
     type: "close_plugin"
 }
-
-export type Command = 
-    MoveLayer | GetLayerVisual | CreateRectangle;
-
-export type PluginCommands = 
-    Command | ClosePlugin | 
-    GetApiKey | SetApiKey;
 
 export interface GetApiKey {
     type: "get_api_key"
@@ -26,33 +18,6 @@ export interface SetApiKey {
 export interface GetApiKeyResponse {
     type: "get_api_key_response"
     apiKey: string | null
-}
-
-export interface ExecuteCommand {
-    type: "execute_command",
-    id: string, 
-    cmd: Command
-}
-
-export interface ExecuteCommands {
-    type: "execute_commands",
-    id: string, 
-    cmds: ExecuteCommand[]
-}
-
-export interface ExecuteCommandResult {
-    type: "execute_command_result",
-    cmd: Command,
-    id: string,
-    status: "success" | "failure",
-    visual?: string
-}
-
-export interface ExecuteCommandsResult {
-    type: "execute_commands_result",
-    cmds: ExecuteCommandResult[],
-    id: string,
-    status: "success" | "failure" | "partial_failures"
 }
 
 export type UIDispatchedMessage = 

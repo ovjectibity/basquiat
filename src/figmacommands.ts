@@ -7,6 +7,7 @@
  *      Grouping
  *      ungrouping
  *      Getting & setting children
+ *      Flattening 
  * 3. Editing visual properties -> DONE
  * 4. Editing layout properties -> DONE
  * 4. Editing scene propertires -> DONE
@@ -17,6 +18,10 @@
  *      view selection ->
  *      Get selection ->  
  *      select/unselect -> 
+ * 7. Getting node info: 
+ *      Get props info: 
+ *      get name: 
+ *      Get parent or children info: 
  * **/
 
 /**
@@ -433,6 +438,7 @@ export interface CreateNode {
 }
 
 export interface EditNodeProperties {
+    type: "edit-node"
     id: string,
     layout?: LayoutProperties,
     visual?: VisualProperties,
@@ -440,11 +446,71 @@ export interface EditNodeProperties {
     frame?: FrameProperties
 }
 
+//TODO: fine tune this to expose 
+// the exact properties to be queried
+export type NodeInfoItems = 
+    "name" | "layout" | 
+    "scene" | "frame";
+
+export interface GetNodeInfo {
+    type: "get-node-info",
+    id: string
+    needed: Array<NodeInfoItems>
+}
+
+export interface GetNodeInfoResult {
+    type: "get-node-info-result",
+    id: string,
+    name?: string,
+    layout?: LayoutProperties,
+    visual?: VisualProperties,
+    scene?: SceneProperties,
+    frame?: FrameProperties
+}
+
 export interface RemoveNode {
+    type: "remove-node",
     id: number
+}
+
+export interface GetCurrentSelectedNodes {
+    type: "get-current-selected-nodes"
 }
 
 export interface GetLayerVisual {
   type: "get-layer-visual"
-  layerId?: string
+  id: string
+}
+
+export type Command = 
+    CreateNode | EditNodeProperties | 
+    GetNodeInfoResult | RemoveNode | 
+    GetLayerVisual | GetCurrentSelectedNodes;
+
+export interface ExecuteCommand {
+    type: "execute_command",
+    id: string, 
+    cmd: Command
+}
+
+export interface ExecuteCommands {
+    type: "execute_commands",
+    id: string, 
+    cmds: ExecuteCommand[]
+}
+
+export interface ExecuteCommandResult {
+    type: "execute_command_result",
+    cmd: Command,
+    id: string,
+    status: "success" | "failure",
+    visual?: string,
+    nodeInfo?: GetNodeInfoResult
+}
+
+export interface ExecuteCommandsResult {
+    type: "execute_commands_result",
+    cmds: ExecuteCommandResult[],
+    id: string,
+    status: "success" | "failure" | "partial_failures"
 }
