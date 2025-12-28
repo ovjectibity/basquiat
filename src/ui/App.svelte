@@ -9,14 +9,25 @@
   import type { CommandExecutor } from '../common.js';
   import { FigmaPluginCommandsDispatcher } from './uicommandsexecutor.js';
 
-  let apiKey: string = $state("");
+  let anthropicApiKey: string = $state("");
+  let googleApiKey: string = $state("");
   let userInput: string = $state("");
   let messages: Array<ModelMessage> = $state([]);
+  let modelMode: "anthropic" | "google" = $state("anthropic");
   let modelName: string = $state("claude-haiku-4-5-20251001");
   let isLoading = false;
   let cmdExec: CommandExecutor;
   let showApiKeyOverlay = $state(false);
   let threadsMap = new Map<string,FigmaAgentThread>();
+  const modelOptions = new Map([
+    ['claude-opus-4', 'Claude Opus 4' ],
+    ['claude-opus-4', 'Claude Sonnet 4' ],
+    ['gemini-3-pro-preview', 'Gemini 3 Pro'],
+    ['gemini-3-flash-preview', 'Gemini 3 Flash'],
+    ['gemini-2-pro', 'Gemini 2 Pro'],
+    ['gemini-2.5-flash', 'Gemini 2.5 Flash'],
+    ['gemini-2.5-flash-lite', 'Gemini 2.5 Flash Lite']
+  ]);
 
   let userOutputSurfacing = (msg: Array<UserOutput>) => {
     console.log(`Got message from the model for the user: ${msg}`);
@@ -46,14 +57,14 @@
   });
 
   function setupNewThread(): Promise<FigmaAgentThread> {
-    if(apiKey === "") {
+    if(anthropicApiKey === "") {
       parent.postMessage({ pluginMessage: { type: 'get_api_key' } }, '*');
       return new Promise((res,rej) => {
         // Listen for API key response
         window.addEventListener('message', (event) => {
           const msg = event.data.pluginMessage;
           if(msg && msg.type === 'get_api_key_response' && msg.apiKey) {
-            apiKey = msg.apiKey;
+            anthropicApiKey = msg.apiKey;
           } else {
             rej(new Error(`Couldn't obtain API key ${event}`));
           }
@@ -78,7 +89,7 @@
     parent.postMessage({
       pluginMessage: {
         type: 'set_api_key',
-        apiKey: apiKey
+        apiKey: anthropicApiKey
       }
     }, '*');
     console.log('API key save requested');
@@ -112,7 +123,7 @@
   async function sendMessage() {
     if (!userInput.trim() || isLoading) return;
 
-    if(!apiKey) {
+    if(!anthropicApiKey) {
       alert('Please set your API key in settings first');
       return;
     } else if(!currentThreadAgent) {
@@ -145,8 +156,12 @@
     showApiKeyOverlay = false;
   }
 
-  function handleUpdateApiKey(newApiKey: string) {
-    apiKey = newApiKey;
+  function handleUpdateApiKey(keys: {
+      anthropicApiKey: string,
+      googleApiKey: string
+    }) {
+    anthropicApiKey = keys.anthropicApiKey;
+    googleApiKey = keys.googleApiKey;
     saveApiKey();
     // Recreate the agent with the new API key
     closeApiKeyOverlay();
@@ -173,7 +188,8 @@
 
   {#if showApiKeyOverlay}
     <ManageKeysOverlay
-      {apiKey}
+      {anthropicApiKey}
+      {googleApiKey}
       onClose={closeApiKeyOverlay}
       onUpdate={handleUpdateApiKey}
     />
