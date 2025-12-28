@@ -2,9 +2,10 @@
   import { run, stopPropagation } from 'svelte/legacy';
 
   import DropdownList from './dropdownlist.svelte';
+  import { type DropdownCategory } from '../common';
 
   interface Props {
-    items: Map<string, string>;
+    items: Map<string,DropdownCategory>;
     selectedKey: string;
     onSelect: (key: string) => void;
     disabled?: boolean;

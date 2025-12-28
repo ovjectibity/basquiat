@@ -6,7 +6,7 @@ import {
     UserModelMessage,
     AssistantModelMessage,
     AssistantModelMessageContents,
-    ModelMode
+    ModelProvider as ModelProviderName
 } from "../messages.js";
 import { FunctionCallingConfigMode, GoogleGenAI, 
     Content as GoogleMessage, 
@@ -19,7 +19,7 @@ import { AssistantModelMessageSchema, ModelMessageSchema } from "../messagessche
 import { BetaContentBlockParam, BetaMessageParam } from "@anthropic-ai/sdk/resources/beta.mjs";
 
 interface ModelProvider {
-    type: ModelMode;
+    type: ModelProviderName;
     maxTokens: number;
     ingestUserMessage(msg: UserModelMessage): Promise<AssistantModelMessage>;
 }
@@ -29,7 +29,7 @@ interface ToolsConfig {
 }
 
 class GoogleAIModel implements ModelProvider {
-    type = "google" as ModelMode;
+    type = "google" as ModelProviderName;
     maxTokens = 1024;
     googleMessages: Array<GoogleMessage>;
     modelName: string;
@@ -184,7 +184,7 @@ class GoogleAIModel implements ModelProvider {
 }
 
 class AnthropicModel implements ModelProvider {
-    type = "anthropic" as ModelMode;
+    type = "anthropic" as ModelProviderName;
     maxTokens = 1024;
     anthMessages: Array<BetaMessageParam>;
     model: string;

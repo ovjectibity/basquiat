@@ -1,6 +1,8 @@
 <script lang="ts">
+  import { type DropdownCategory } from '../common';
+
   interface Props {
-    items: Map<string,string>;
+    items: Map<string,DropdownCategory>;
     selectedKey: string;
     onSelect: (value: string) => void;
     position?: 'up' | 'down';
@@ -16,15 +18,27 @@
   }: Props = $props();
 </script>
 
-<div class="dropdown-list" class:position-up={position === 'up'} class:align-right={align === 'right'}>
-  {#each items as [key,val] (key)}
-    <button
-      class="dropdown-item"
-      class:selected={key === selectedKey}
-      onclick={() => onSelect(key)}
-      type="button"
-    >
-      {val}
-    </button>
+<div class="dropdown-list" class:position-up={position === 'up'} 
+  class:align-right={align === 'right'}>
+  {#each items as [id, category], index (id)}
+    
+    {#if index > 0}
+      <hr class="dropdown-divider" />
+    {/if}
+
+    {#if category.label}
+      <div class="dropdown-header">{category.label}</div>
+    {/if}
+
+    {#each category.items as item (item.key)}
+      <button
+        class="dropdown-item"
+        class:selected={item.key === selectedKey}
+        onclick={() => onSelect(item.key)}
+        type="button"
+      >
+        {item.label}
+      </button>
+    {/each}
   {/each}
 </div>

@@ -3,23 +3,25 @@
 
   import Dropdown from './dropdown.svelte';
   import DropdownList from './dropdownlist.svelte';
+  import { type DropdownCategory } from '../common';
 
   interface Props {
-    selectedChat: string;
+    selectedChatKey: string;
+    chats: Map<string, DropdownCategory>;
     onChatChange: (chat: string) => void;
     onManageApiKeys: () => void;
   }
 
-  let { selectedChat, onChatChange, onManageApiKeys }: Props = $props();
-
-  const chatOptions = new Map([
-    [ 'chat-1', 'Chat 1' ],
-    [ 'chat-2', 'Chat 2' ],
-    [ 'chat-3', 'Chat 3']
-  ]);
+  let { selectedChatKey, chats, onChatChange, onManageApiKeys }: Props = $props();
 
   const moreOptions = new Map([
-    [ 'manage-api-keys', 'Manage API keys' ]
+    [ 'manage-api-keys', {
+        id: "manage-api-keys",
+        items: [{
+          key: "manage-api-keys",
+          label: "Manage Api Keys"
+        }]
+      }]
   ]);
 
   let isMoreDropdownOpen = $state(false);
@@ -47,8 +49,8 @@
 
 <div class="header">
   <Dropdown
-    items={chatOptions}
-    selectedKey={selectedChat}
+    items={chats}
+    selectedKey={selectedChatKey}
     onSelect={onChatChange}
     position="down"
   />

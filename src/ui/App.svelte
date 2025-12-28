@@ -5,14 +5,14 @@
     ModelMessage, SetApiKeys, UserModelMessage, 
     UserOutput, Thread, ThreadBase,
     GetThreads,
-    ModelMode
+    ModelProvider
   } from "../messages.js";
   import Header from './header.svelte';
   import Messages from './messages.svelte';
   import Input from './input.svelte';
   import ManageKeysOverlay from './managekeysoverlay.svelte';
   import { FigmaAgentThread } from "./agent.js";
-  import type { CommandExecutor } from '../common.js';
+  import type { CommandExecutor, DropdownCategory } from '../common.js';
   import { FigmaPluginCommandsDispatcher } from './uicommandsexecutor.js';
 
   interface ApiKeys {
@@ -25,22 +25,12 @@
   let userInput: string = $state("");
   let messages: Array<ModelMessage> = $state([]);
   let currentThread: number = $state(-1);
-  let currentModelMode: ModelMode = $state("anthropic");
+  let currentModelMode: ModelProvider = $state("anthropic");
   let currentModelName: string = $state("claude-haiku-4-5-20251001");
   let isLoading = false;
   let cmdExec: CommandExecutor;
   let showApiKeyOverlay = $state(false);
   let threadsList = new Map<number,ThreadBase>();
-  const modelOptions = new Map([
-    ['claude-opus-4', 'Claude Opus 4' ],
-    ['claude-sonnet-4', 'Claude Sonnet 4' ],
-    ['claude-haiku-4-5-20251001', 'Claude Haiku 4.5' ],
-    ['gemini-3-pro-preview', 'Gemini 3 Pro'],
-    ['gemini-3-flash-preview', 'Gemini 3 Flash'],
-    ['gemini-2-pro', 'Gemini 2 Pro'],
-    ['gemini-2.5-flash', 'Gemini 2.5 Flash'],
-    ['gemini-2.5-flash-lite', 'Gemini 2.5 Flash Lite']
-  ]);
   let loadedThreadAgents: Map<number,FigmaAgentThread> = new Map();
 
   // Load API key on mount
@@ -61,6 +51,18 @@
     messages = [...loadedThreadAgents.get(id).messages];
     return;
   };
+
+  let getThreadCategories = function(
+    threadsList: Map<number, ThreadBase>): 
+    Map<string, DropdownCategory> {
+    const allItems = Array.from(threadsList.values()).map(thread => ({
+      key: thread.id.toString(),
+      label: thread.title
+    }));
+    return new Map([
+      ['recent', { id: "recent", items: allItems }]
+    ]);
+  }
 
   function setupApiKey(): Promise<ApiKeys> {
     let getApiKeysMsg: GetApiKeys = {
@@ -274,8 +276,10 @@
 </script>
 
 <div class="app">
+  <!-- TODO: Fix the use of currentThread as label here  -->
   <Header
-    selectedChat={"chat-1"}
+    chats={getThreadCategories(threadsList)}
+    selectedChatKey={String(currentThread)}
     onChatChange={onChatChange}
     onManageApiKeys={openApiKeyOverlay}
   />
