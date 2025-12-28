@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import type { ModelMessage, UserModelMessage, UserOutput } from "../messages.js";
+  import type { GetApiKey, GetApiKeyResponse, ModelMessage, SetApiKey, UserModelMessage, UserOutput } from "../messages.js";
   import Header from './header.svelte';
   import Messages from './messages.svelte';
   import Input from './input.svelte';
@@ -58,15 +58,20 @@
 
   function setupNewThread(): Promise<FigmaAgentThread> {
     if(anthropicApiKey === "") {
-      parent.postMessage({ pluginMessage: { type: 'get_api_key' } }, '*');
+      let getApiKeysMsg: GetApiKey = {
+        type: "get_api_keys"
+      } 
+      parent.postMessage({ pluginMessage: getApiKeysMsg }, '*');
       return new Promise((res,rej) => {
         // Listen for API key response
         window.addEventListener('message', (event) => {
           const msg = event.data.pluginMessage;
-          if(msg && msg.type === 'get_api_key_response' && msg.apiKey) {
-            anthropicApiKey = msg.apiKey;
+          if(msg && msg.type === "get_api_keys_response" && 
+            (msg.anthropicKey || msg.googleKey)) {
+            anthropicApiKey = (msg as GetApiKeyResponse).anthropicKey;
+            googleApiKey = (msg as GetApiKeyResponse).googleKey;
           } else {
-            rej(new Error(`Couldn't obtain API key ${event}`));
+            rej(new Error(`Couldn't obtain API keys ${event}`));
           }
         });
         setTimeout(() => {
@@ -86,11 +91,13 @@
   }
 
   function saveApiKey() {
+    let setKeyMsg: SetApiKey = {
+        type: 'set_api_keys',
+        anthropicKey: anthropicApiKey,
+        googleKey: googleApiKey
+    }
     parent.postMessage({
-      pluginMessage: {
-        type: 'set_api_key',
-        apiKey: anthropicApiKey
-      }
+      pluginMessage: setKeyMsg
     }, '*');
     console.log('API key save requested');
   }

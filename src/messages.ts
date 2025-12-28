@@ -2,29 +2,71 @@ import {
     ExecuteCommands, ExecuteCommandsResult
 } from "./figmacommands.js";
 
+export type ModelMode = "anthropic" | "google";
+
+export interface Thread {
+    id: number, 
+    title: string, 
+    msgs: ModelMessage[],
+    modelType: ModelMode
+}
+
+export type ThreadBase = Exclude<Thread,"msgs">;
+
 export interface ClosePlugin {
     type: "close_plugin"
 }
 
 export interface GetApiKey {
-    type: "get_api_key"
+    type: "get_api_keys"
 }
 
 export interface SetApiKey {
-    type: "set_api_key"
-    apiKey: string
+    type: "set_api_keys",
+    anthropicKey?: string,
+    googleKey?: string
 }
 
 export interface GetApiKeyResponse {
-    type: "get_api_key_response"
-    apiKey: string | null
+    type: "get_api_keys_response",
+    anthropicKey?: string,
+    googleKey?: string
+}
+
+export interface GetThreadsList {
+    type: "get_all_threads_list"
+}
+
+export interface GetThreadsListResponse {
+    type: "get_threads_response",
+    threads: Array<ThreadBase>
+}
+
+export interface GetThreads {
+    type: "get_threads",
+    ids: Array<number>
+}
+
+export interface GetThreadsResponse {
+    type: "get_threads_response",
+    threads: Array<Thread>
+}
+
+export interface SaveThreads {
+    //Any thread returned here with an 
+    // existing id will be replaced 
+    type: "save_threads",
+    threads: Array<Thread>
 }
 
 export type UIDispatchedMessage = 
     GetApiKey | SetApiKey | 
-    ClosePlugin | ExecuteCommands;
+    ClosePlugin | ExecuteCommands | 
+    GetThreadsList | GetThreads | 
+    SaveThreads;
 export type PluginDispatchedMessage = 
-    GetApiKeyResponse | ExecuteCommandsResult;
+    GetApiKeyResponse | ExecuteCommandsResult | 
+    GetThreadsListResponse | GetThreadsResponse;
 
 export interface FigmaDesignToolResult {
     type: "tool_result",
