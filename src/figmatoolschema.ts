@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { FigmaDesignToolInput } from './messages';
+import { ExecuteCommandsResult } from './figmacommands';
 
 // Helper Schemas (simplified for illustration, actual Figma types might be more complex)
 // For now, using z.any() for complex Figma types not fully defined in the provided files
@@ -35,7 +36,7 @@ const EffectZ = z.object({
 }).partial().describe("An effect applied to a layer");
 
 const SolidPaintZ = z.object({
-  type: z.literal("SOLID"),
+  type: z.enum(["SOLID"]),
   color: z.object({ r: z.number(), g: z.number(), b: z.number(), a: z.number() }).optional(),
   // Add other paint properties as needed
 });
@@ -79,7 +80,7 @@ const LayoutGridZ = z.object({
 
 const GridTrackSizeZ = z.object({
   // Assuming a simple structure for GridTrackSize, adjust if more details are available
-  // e.g., type: z.literal('FIXED') | z.literal('AUTO'), value: z.number()
+  // e.g., type: z.enum('FIXED') | z.enum('AUTO'), value: z.number()
   value: z.number(), // Placeholder
 }).describe("Size of a grid track");
 
@@ -136,20 +137,20 @@ const VisualPropertiesZ = z.object({
   isMask: z.boolean().optional(),
   effects: z.array(EffectZ).optional(),
   effectStyleId: z.string().optional(),
-  cornerRadius: z.union([z.number(), z.literal('figma.mixed')]).optional(), // figma.mixed is a special global object
+  cornerRadius: z.union([z.number(), z.enum(['figma.mixed'])]).optional(), // figma.mixed is a special global object
   cornerSmoothing: z.number().optional(),
   topLeftRadius: z.number().optional(),
   topRightRadius: z.number().optional(),
   bottomLeftRadius: z.number().optional(),
   bottomRightRadius: z.number().optional(),
-  fills: z.union([z.array(PaintZ), z.literal('figma.mixed')]).optional(),
-  fillStyleId: z.union([z.string(), z.literal('figma.mixed')]).optional(),
+  fills: z.union([z.array(PaintZ), z.enum(['figma.mixed'])]).optional(),
+  fillStyleId: z.union([z.string(), z.enum(['figma.mixed'])]).optional(),
   strokes: z.array(PaintZ).optional(),
   strokeStyleId: z.string().optional(),
-  strokeWeight: z.union([z.number(), z.literal('figma.mixed')]).optional(),
+  strokeWeight: z.union([z.number(), z.enum(['figma.mixed'])]).optional(),
   strokeAlign: z.enum(['CENTER', 'INSIDE', 'OUTSIDE']).optional(),
-  strokeCap: z.union([StrokeCapZ, z.literal('figma.mixed')]).optional(),
-  strokeJoin: z.union([StrokeJoinZ, z.literal('figma.mixed')]).optional(),
+  strokeCap: z.union([StrokeCapZ, z.enum(['figma.mixed'])]).optional(),
+  strokeJoin: z.union([StrokeJoinZ, z.enum(['figma.mixed'])]).optional(),
   dashPattern: z.array(z.number()).optional(),
   strokeMiterLimit: z.number().optional(),
   fillGeometry: z.array(VectorPathZ).optional(),
@@ -196,7 +197,7 @@ const FramePropertiesZ = z.object({
 
 // Command Schemas
 const CreateNodeZ = z.object({
-  type: z.literal("create-node"),
+  type: z.enum(["create-node"]),
   nodeName: z.enum(["rectangle", "frame", "group", "page", "text", "line", "instance"]),
   layout: LayoutPropertiesZ.optional(),
   visual: VisualPropertiesZ.optional(),
@@ -205,7 +206,7 @@ const CreateNodeZ = z.object({
 }).describe("Command to create a new node");
 
 const EditNodePropertiesZ = z.object({
-  type: z.literal("edit-node"),
+  type: z.enum(["edit-node"]),
   id: z.string(),
   layout: LayoutPropertiesZ.optional(),
   visual: VisualPropertiesZ.optional(),
@@ -216,13 +217,13 @@ const EditNodePropertiesZ = z.object({
 const NodeInfoItemsZ = z.enum(["name", "layout", "scene", "frame"]).describe("Items to request for node info");
 
 const GetNodeInfoZ = z.object({
-  type: z.literal("get-node-info"),
+  type: z.enum(["get-node-info"]),
   id: z.string(),
   needed: z.array(NodeInfoItemsZ),
 }).describe("Command to get information about a node");
 
 export const GetNodeInfoResultZ = z.object({
-  type: z.literal("get-node-info-result"),
+  type: z.enum(["get-node-info-result"]),
   id: z.string(),
   name: z.string().optional(),
   layout: LayoutPropertiesZ.optional(),
@@ -232,16 +233,16 @@ export const GetNodeInfoResultZ = z.object({
 }).describe("Result of getting node information");
 
 const RemoveNodeZ = z.object({
-  type: z.literal("remove-node"),
+  type: z.enum(["remove-node"]),
   id: z.number(),
 }).describe("Command to remove a node");
 
 const GetCurrentSelectedNodesZ = z.object({
-  type: z.literal("get-current-selected-nodes"),
+  type: z.enum(["get-current-selected-nodes"]),
 }).describe("Command to get currently selected nodes");
 
 const GetLayerVisualZ = z.object({
-  type: z.literal("get-layer-visual"),
+  type: z.enum(["get-layer-visual"]),
   id: z.string(),
 }).describe("Command to get visual information of a layer");
 
@@ -257,19 +258,19 @@ export const CommandZ = z.discriminatedUnion("type", [
 
 // Execute command schemas
 export const ExecuteCommandZ = z.object({
-  type: z.literal("execute_command"),
+  type: z.enum(["execute_command"]),
   id: z.string(),
   cmd: CommandZ,
 }).describe("A single command to be executed");
 
 export const ExecuteCommandsZ = z.object({
-  type: z.literal("execute_commands"),
+  type: z.enum(["execute_commands"]),
   id: z.string(),
   cmds: z.array(ExecuteCommandZ),
 }).describe("A collection of commands to be executed in sequence");
 
 export const ExecuteCommandResultZ = z.object({
-  type: z.literal("execute_command_result"),
+  type: z.enum(["execute_command_result"]),
   cmd: CommandZ,
   id: z.string(),
   status: z.enum(["success", "failure"]),
@@ -278,11 +279,11 @@ export const ExecuteCommandResultZ = z.object({
 }).describe("Result of a single command execution");
 
 export const ExecuteCommandsResultZ = z.object({
-  type: z.literal("execute_commands_result"),
+  type: z.enum(["execute_commands_result"]),
   cmds: z.array(ExecuteCommandResultZ),
   id: z.string(),
   status: z.enum(["success", "failure", "partial_failures"]),
-}).describe("Result of a collection of commands execution");
+}).describe("Result of a collection of commands execution") satisfies z.ZodType<ExecuteCommandsResult>;
 
 // Figma Design Tool Input Schema
 export const FigmaDesignToolZ = z.object({
@@ -291,3 +292,4 @@ export const FigmaDesignToolZ = z.object({
 }).describe("View and modify a user-owned Figma Design files using this tool") satisfies z.ZodType<FigmaDesignToolInput>;
 
 export const FigmaDesignToolSchema = z.toJSONSchema(FigmaDesignToolZ) as any;
+export const FigmaDesignToolResponseSchema = z.toJSONSchema(ExecuteCommandsResultZ) as any;

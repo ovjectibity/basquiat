@@ -14,7 +14,7 @@ import { FunctionCallingConfigMode, GoogleGenAI,
     Part as GoogleMessageParams
 } from "@google/genai";
 import { Tool as AnthTool } from "@anthropic-ai/sdk/resources";
-import { FigmaDesignToolZ, FigmaDesignToolSchema } from "../figmatoolschema.js";
+import { FigmaDesignToolZ, FigmaDesignToolSchema, FigmaDesignToolResponseSchema } from "../figmatoolschema.js";
 import { AssistantModelMessageSchema, AssistantModelMessageZ, ModelMessageSchema } from "../messagesschema.js";
 import { BetaContentBlockParam, BetaMessageParam } from "@anthropic-ai/sdk/resources/beta.mjs";
 
@@ -63,7 +63,8 @@ class GoogleAIModel implements ModelProvider {
                 functionDeclarations: [{
                     name: "figma-design-tool",
                     description: FigmaDesignToolZ.description,
-                    parametersJsonSchema: FigmaDesignToolSchema
+                    parametersJsonSchema: FigmaDesignToolSchema,
+                    responseJsonSchema: FigmaDesignToolResponseSchema
                 }]
             }];
         } else return []; 
@@ -114,6 +115,7 @@ class GoogleAIModel implements ModelProvider {
                 }
                 if(content.functionCall) {
                     if(content.functionCall.name === "figma-design-tool") {
+                        //TODO: Parse the functional call here as FigmaDesignToolInput
                         msg.push({
                             type: "tool_use",
                             name: "figma-design-tool",
@@ -172,7 +174,7 @@ class GoogleAIModel implements ModelProvider {
                 tools: this.getTools(),
                 toolConfig: {
                     functionCallingConfig: {
-                        mode: FunctionCallingConfigMode.AUTO
+                        mode: FunctionCallingConfigMode.VALIDATED
                     }
                 },
                 responseJsonSchema: ModelMessageSchema

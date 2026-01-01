@@ -44,8 +44,8 @@ export let Gemini3Flash = {
 };
 
 export let Gemini2Pro = {
-    key: "gemini-2-pro",
-    name: "Gemini 2 Pro",
+    key: "gemini-2.5-pro",
+    name: "Gemini 2.5 Pro",
     provider: "google" as ModelMode
 };
 
@@ -67,7 +67,7 @@ export const modelOptions: Map<string,Model> = new Map([
     ['claude-haiku-4-5-20251001', ClaudeHaiku45],
     ['gemini-3-pro-preview', Gemini3Pro],
     ['gemini-3-flash-preview', Gemini3Flash],
-    ['gemini-2-pro', Gemini2Pro],
+    ['gemini-2.5-pro', Gemini2Pro],
     ['gemini-2.5-flash', Gemini25Flash],
     ['gemini-2.5-flash-lite', Gemini25FlashLite]
 ]);
