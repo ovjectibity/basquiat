@@ -37,6 +37,14 @@ class FigmaAgentThread {
         this.userSurfacingCb = userSurfacingCb;
     }
 
+    updateModelKey(modelKey: string) {
+        if(this.model) {
+            this.model.updateModelKey(modelKey);
+        } else {
+            console.error(`No model object to update model key`);
+        }
+    }
+
     setupModel(modelMode: ModelMode, modelName: string, apiKey: string) {
         if(modelMode === "anthropic") {
             this.model = new AnthropicModel(

@@ -22,6 +22,7 @@ interface ModelProvider {
     type: ModelProviderName;
     maxTokens: number;
     ingestUserMessage(msg: UserModelMessage): Promise<AssistantModelMessage>;
+    updateModelKey(modelKey: string): void;
 }
 
 interface ToolsConfig {
@@ -49,6 +50,10 @@ class GoogleAIModel implements ModelProvider {
         this.modelClient = new GoogleGenAI({
             apiKey: apiKey
         });
+    }
+
+    updateModelKey(modelKey: string) {
+        this.modelName = modelKey;
     }
 
     getTools(): Array<GoogleTool> {
@@ -167,8 +172,8 @@ class GoogleAIModel implements ModelProvider {
                     functionCallingConfig: {
                         mode: FunctionCallingConfigMode.AUTO
                     }
-                },
-                responseJsonSchema: ModelMessageSchema
+                }
+                // responseJsonSchema: ModelMessageSchema
             }
         }); 
         console.debug(`Got this direct model output: ${modelOutput}`);
@@ -187,7 +192,7 @@ class AnthropicModel implements ModelProvider {
     type = "anthropic" as ModelProviderName;
     maxTokens = 1024;
     anthMessages: Array<BetaMessageParam>;
-    model: string;
+    modelName: string;
     modelClient: Anthropic;
     systemPrompt: string;
     tools: ToolsConfig;
@@ -203,8 +208,12 @@ class AnthropicModel implements ModelProvider {
             dangerouslyAllowBrowser: true
         });
         this.systemPrompt = systemPrompt;
-        this.model = model;
+        this.modelName = model;
         this.tools = tools;
+    }
+
+    updateModelKey(modelKey: string) {
+        this.modelName = modelKey;
     }
 
     async ingestUserMessage(msg: UserModelMessage): Promise<AssistantModelMessage> {
@@ -228,7 +237,7 @@ class AnthropicModel implements ModelProvider {
             }
         }
         let modelOutput = await this.modelClient.beta.messages.create({
-            model: this.model,
+            model: this.modelName,
             max_tokens: this.maxTokens,
             betas: ["structured-outputs-2025-11-13"],
             messages: this.anthMessages,

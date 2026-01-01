@@ -1,6 +1,7 @@
 <script lang="ts">
-  import { type DropdownItem, 
-    type DropdownCategory } from '../common';
+  import { 
+    type DropdownCategory 
+  } from '../common';
 
   interface Props {
     items: Map<string,DropdownCategory>;

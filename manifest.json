@@ -14,7 +14,9 @@
   "networkAccess": {
     "allowedDomains": [
       "https://api.anthropic.com",
-      "wss://api.anthropic.com"
+      "wss://api.anthropic.com",
+      "https://generativelanguage.googleapis.com",
+      "wss://generativelanguage.googleapis.com"
     ]
   }
 }

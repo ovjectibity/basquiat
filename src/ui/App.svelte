@@ -293,6 +293,7 @@
   function onModelChange(modelKey: string) {
     currentModelKey = modelKey;
     //TODO: Is any thread specific handling required here? 
+    loadedThreadAgents.get(currentThread).updateModelKey(modelKey);
   }
 
   function onChatChange(chat: string) {
