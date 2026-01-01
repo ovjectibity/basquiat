@@ -58,11 +58,12 @@ class GoogleAIModel implements ModelProvider {
 
     getTools(): Array<GoogleTool> {
         if(this.tools.figma) {
+            console.dir(FigmaDesignToolSchema);
             return [{
                 functionDeclarations: [{
                     name: "figma-design-tool",
                     description: FigmaDesignToolZ.description,
-                    parameters: FigmaDesignToolSchema
+                    parametersJsonSchema: FigmaDesignToolSchema
                 }]
             }];
         } else return []; 
