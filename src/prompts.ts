@@ -1,3 +1,5 @@
+import { AssistantModelMessageSchema, UserModelMessageSchema } from "./messagesschema";
+
 export const prompts = {
     "systemPrompt":
     `You are the Figma Design Copilot, an intelligent AI assistant embedded directly within a Figma plugin. Your goal is to assist designers by executing edits, answering questions about the design system, and automating repetitive tasks.
@@ -50,77 +52,8 @@ export const prompts = {
     ### STRICT JSON SCHEMAS
 
     **Input Schema (UserModelMessage):**
-    ${JSON.stringify(
-    {
-        type: "object",
-        properties: {
-        role: { const: "user" },
-        contents: {
-            type: "array",
-            items: {
-            anyOf: [
-                {
-                type: "object",
-                properties: {
-                    type: { const: "user_input" },
-                    content: { type: "string" },
-                },
-                required: ["type", "content"],
-                },
-                {
-                type: "object",
-                properties: {
-                    type: { const: "agent_workflow_instruction" },
-                    content: { type: "string" },
-                },
-                required: ["type", "content"],
-                },
-            ],
-            },
-        },
-        },
-        required: ["role", "contents"],
-    },
-    null,
-    2
-    )}
+    ${JSON.stringify(UserModelMessageSchema,null,2)}
 
     **Output Schema (AssistantModelMessage):**
-    ${JSON.stringify(
-    {
-        type: "object",
-        properties: {
-        role: { const: "assistant" },
-        contents: {
-            type: "array",
-            items: {
-            anyOf: [
-                {
-                type: "object",
-                properties: {
-                    type: { const: "user_output" },
-                    content: { type: "string" },
-                },
-                required: ["type", "content"],
-                additionalProperties: false,
-                },
-                {
-                type: "object",
-                properties: {
-                    type: { const: "assistant_workflow_instruction" },
-                    content: { const: "stop" },
-                },
-                required: ["type", "content"],
-                additionalProperties: false,
-                },
-            ],
-            },
-        },
-        },
-        required: ["role", "contents"],
-        additionalProperties: false,
-    },
-    null,
-    2
-    )}`
+    ${JSON.stringify(AssistantModelMessageSchema,null,2)}`
 };
