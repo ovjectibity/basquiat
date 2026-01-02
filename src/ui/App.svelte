@@ -277,8 +277,8 @@
         agent.updateConsent("auto-approve");
         consentLevel = "auto-approve";
       }
-      let next = await agent.turn.next(userres);
-      if(!next.done && next.value === "need-user-consent") {
+      let res = await agent.provideUserConsentResponse(userres);
+      if(res === "need-user-consent") {
         needConsent = true;
       }
     } else {
@@ -303,8 +303,8 @@
     try {
       let agent = loadedThreadAgents.get(currentThread);
       if(!agent.isTurnActive()) {
-        let next = await agent.runTurn(userMessage).next();
-        if(!next.done && next.value === "need-user-consent") {
+        let res = await agent.runTurn(userMessage);
+        if(res === "need-user-consent") {
           needConsent = true;
         }
       } else {

@@ -28,7 +28,7 @@ class FigmaAgentThread {
     userSurfacingCb: (msg: Array<UserOutput>) => void;
     status: "waiting-for-user" | "running" = "waiting-for-user";
     private consentLevel: AgentToolConsentLevel = "ask";
-    turn: null | AsyncGenerator<AgentYield,void,UserToolConsentResponse> = null;
+    private turn: null | AsyncGenerator<AgentYield,void,UserToolConsentResponse> = null;
 
     constructor(id: number, 
         modelMode: ModelMode,
@@ -111,22 +111,36 @@ class FigmaAgentThread {
         return this.turn !== null ? true : false;
     }
 
-    async *runTurn(userMessage: UserModelMessage): 
-        AsyncGenerator<AgentYield,void,UserToolConsentResponse> {
+    async provideUserConsentResponse(consentResponse: UserToolConsentResponse): 
+    Promise<AgentYield | void> {
+        if(!this.turn) {
+            throw new Error(`There's no active turn; doing nothing`);
+        } else {
+            let res = await this.turn.next(consentResponse);
+            res.value
+            if(res.done) {
+                console.log(`Ending the active agent turn now`);
+                this.turn = null;
+                return;
+            } else {
+                return res.value as AgentYield;
+            }
+        }
+    }
+
+    async runTurn(userMessage: UserModelMessage): 
+    Promise<AgentYield | void> {
         if(this.turn) {
             Promise.reject(new Error(`There's already an active turn; doing nothing`));
         } else {
             this.turn = this.ingestUserInput(userMessage);
             let res = await this.turn.next();
-            while(!res.done) {
-                console.log(`Asking for user consent for the tool call`);
-                let userres = yield res.value;
-                //TODO: BUG HERE???: The gen is waiting for a AgentYield 
-                // type to resolve here, that won't happen
-                res = await this.turn.next(userres); 
+            if(res.done) { 
+                console.log(`Ending the active agent turn now`);
+                this.turn = null;
+            } else {
+                return res.value as AgentYield;
             }
-            console.log(`Ending the active agent turn now`);
-            this.turn = null;
         }
     }
 
@@ -227,7 +241,7 @@ class FigmaAgentThread {
                             }
                         }
                     } else {
-                        console.log(`Resolving ingestUserInput now`);
+                        // console.log(`Resolving ingestUserInput now`);
                         this.status = "waiting-for-user";
                         return Promise.resolve();
                     } 
