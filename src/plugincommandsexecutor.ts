@@ -213,15 +213,7 @@ export class FigmaExecutor implements CommandExecutor {
                         id: executeCmd.id,
                         cmd: cmd,
                         status: "success",
-                        nodeInfo: {
-                            type: "get-node-info-result", // This is a bit of a hack, GetCurrentSelectedNodes doesn't directly map to a single NodeInfoResult
-                            id: "selection", // Use a placeholder ID for the collection
-                            name: "Current Selection",
-                            // This part might need to be re-evaluated if a list of NodeInfoResult is expected
-                        },
-                        // A more appropriate return would be an array of NodeInfoResult, which isn't directly supported by 'nodeInfo' field
-                        // For now, returning the first node's info if available, or null.
-                        // Ideally, we'd have a separate 'selectedNodesInfo' field in ExecuteCommandResult
+                        nodeInfo: selectedNodeInfos
                     };
                 }
 

@@ -1,12 +1,14 @@
 <script lang="ts">
   import type { ModelMessage } from "../messages.js";
+  import type { AgentToolConsentLevel } from "./agent.js";
 
   interface Props {
     messages: Array<ModelMessage>;
+    consentLevel: AgentToolConsentLevel;
     isLoading: boolean;
   }
 
-  let { messages, isLoading }: Props = $props();
+  let { messages, consentLevel, isLoading }: Props = $props();
 </script>
 
 <div class="messages">
@@ -26,6 +28,18 @@
             <div class="message-content">
               Invoking Figma tool: 
               {content.content.input.objective}
+              <details>
+                <summary>Commands</summary>
+                {#each content.content.input.commands.cmds as command}
+                  <div>
+                    {command.cmd.type} {(command.cmd as any).id ? `(ID: ${(command.cmd as any).id})` : ''}
+                    <details>
+                      <summary>Arguments</summary>
+                      <pre>{JSON.stringify(command.cmd, null, 2)}</pre>
+                    </details>
+                  </div>
+                {/each}
+              </details>
             </div>
           {:else if content.type === "tool_result" && content.name === "figma-design-tool"}
             <div class="message-content">

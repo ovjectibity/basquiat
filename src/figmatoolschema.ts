@@ -275,7 +275,7 @@ export const ExecuteCommandResultZ = z.object({
   id: z.string(),
   status: z.enum(["success", "failure"]),
   visual: z.string().optional(),
-  nodeInfo: GetNodeInfoResultZ.optional(),
+  nodeInfo: z.array(GetNodeInfoResultZ).optional(),
 }).describe("Result of a single command execution");
 
 export const ExecuteCommandsResultZ = z.object({

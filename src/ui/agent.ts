@@ -14,6 +14,10 @@ interface ProcessedModelOutput {
     toolInput?: FigmaDesignToolInput
 }
 
+type AgentToolConsentLevel = "ask" | "auto-approve";
+type AgentYield = "need-user-consent";
+type UserToolConsentResponse = "user-consented" | "user-rejected";
+
 class FigmaAgentThread {
     messages: Array<ModelMessage>;
     executor: CommandExecutor;
@@ -22,6 +26,7 @@ class FigmaAgentThread {
     modelMode: ModelMode;
     userSurfacingCb: (msg: Array<UserOutput>) => void;
     status: "waiting-for-user" | "running" = "waiting-for-user";
+    consentLevel: AgentToolConsentLevel = "ask";
 
     constructor(id: number, 
         modelMode: ModelMode,
@@ -35,6 +40,10 @@ class FigmaAgentThread {
         this.executor = executor;
         this.messages = new Array();
         this.userSurfacingCb = userSurfacingCb;
+    }
+
+    updateConsent(newConsent: AgentToolConsentLevel) {
+        this.consentLevel = newConsent;
     }
 
     updateModelKey(modelKey: string) {
@@ -94,8 +103,12 @@ class FigmaAgentThread {
         }
     }
 
-    //TODO: Handle user interruptions: 
-    async ingestUserInput(userMessage: UserModelMessage): Promise<void> {
+    //TODO: Handle user interruptions
+    //TODO: This can probably be made more elegant 
+    // using generator pattern better
+    //Generator being used here for user consent
+    async *ingestUserInput(userMessage: UserModelMessage): 
+    AsyncGenerator<AgentYield,void,UserToolConsentResponse> {
         if(!this.model) {
             console.error(`User input being processed while model is not setup`);
         } else {
@@ -106,21 +119,59 @@ class FigmaAgentThread {
                     const modelOutput = await this.model.ingestUserMessage(userMessage);
                     this.messages.push(modelOutput);
                     let processedOutput = this.processModelOutput(modelOutput);
+                    //Surfacing the messages to the user for display
                     this.userSurfacingCb(processedOutput.userOutput);
                     if(processedOutput.toolInput) {
-                        console.log(`Executing commands evoked by the model:`);
-                        console.dir(processedOutput.toolInput);
-                        let cmdsResult = await this.executor.executeCommands(
+                        //TODO: Before executing commands, check for the consent
+                        console.log(`Commands evoked by the model:`);
+                        console.dir(processedOutput.toolInput); 
+                        let userConsent = true;
+                        if(this.consentLevel === "ask") {
+                            console.log(`Yielding ingestUserInput to get ` + 
+                                `user consent for commands`);
+                            let userConsentResponse = yield "need-user-consent";
+                            userConsent = userConsentResponse === "user-consented" ? 
+                                        true : false;
+                        }
+                        if(userConsent) {
+                            console.log(`Executing commands now given user consent`);
+                            let cmdsResult = await this.executor.executeCommands(
                             processedOutput.toolInput.commands);
-                        userMessage = {
-                            role: "user",
-                            contents: [{
-                                type: "tool_result",
-                                name: "figma-design-tool",
-                                content: cmdsResult
-                            }]
-                        };
-                        this.messages.push(userMessage);
+                            console.log(`Got this result from executing commands:`);
+                            console.dir(cmdsResult);
+                            userMessage = {
+                                role: "user",
+                                contents: [{
+                                    type: "tool_result",
+                                    name: "figma-design-tool",
+                                    content: cmdsResult
+                                }]
+                            };
+                            this.messages.push(userMessage);
+                        } else {
+                            console.log(`Not executing commands given user consent wasn't provided`);
+                            userMessage = {
+                                role: "user",
+                                contents: [{
+                                    type: "tool_result",
+                                    name: "figma-design-tool",
+                                    content: {
+                                        type: "execute_commands_result",
+                                        cmds: [],
+                                        id: processedOutput.toolInput.commands.id,
+                                        status: "failure",
+                                        error: "User did not provide consent to run the tool call"
+                                    }
+                                }]
+                            };
+                            this.messages.push(userMessage);
+                            //TODO: The tool failure response is added 
+                            // here but not forwarded to the model 
+                            // until the next user response
+                            //We just stop for the user response
+                            this.status = "waiting-for-user";
+                            return Promise.resolve();
+                        } 
                     } else {
                         this.status = "waiting-for-user";
                         return Promise.resolve();
@@ -136,4 +187,4 @@ class FigmaAgentThread {
     }
 }
 
-export { FigmaAgentThread };
+export { FigmaAgentThread, AgentToolConsentLevel };

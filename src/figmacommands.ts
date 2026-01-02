@@ -428,54 +428,54 @@ export interface SceneProperties {
 }
 
 export interface CreateNode {
-    type: "create-node",
-    nodeName: "rectangle" | "frame" | "group" | 
-        "page" | "text" | "line" | 
-        "instance",
-    layout?: LayoutProperties,
-    visual?: VisualProperties,
-    scene?: SceneProperties,
-    frame?: FrameProperties
+  type: "create-node",
+  nodeName: "rectangle" | "frame" | "group" | 
+      "page" | "text" | "line" | 
+      "instance",
+  layout?: LayoutProperties,
+  visual?: VisualProperties,
+  scene?: SceneProperties,
+  frame?: FrameProperties
 }
 
 export interface EditNodeProperties {
-    type: "edit-node"
-    id: string,
-    layout?: LayoutProperties,
-    visual?: VisualProperties,
-    scene?: SceneProperties,
-    frame?: FrameProperties
+  type: "edit-node"
+  id: string,
+  layout?: LayoutProperties,
+  visual?: VisualProperties,
+  scene?: SceneProperties,
+  frame?: FrameProperties
 }
 
 //TODO: fine tune this to expose 
 // the exact properties to be queried
 export type NodeInfoItems = 
-    "name" | "layout" | 
-    "scene" | "frame";
+  "name" | "layout" | 
+  "scene" | "frame";
 
 export interface GetNodeInfo {
-    type: "get-node-info",
-    id: string
-    needed: Array<NodeInfoItems>
+  type: "get-node-info",
+  id: string
+  needed: Array<NodeInfoItems>
 }
 
 export interface GetNodeInfoResult {
-    type: "get-node-info-result",
-    id: string,
-    name?: string,
-    layout?: LayoutProperties,
-    visual?: VisualProperties,
-    scene?: SceneProperties,
-    frame?: FrameProperties
+  type: "get-node-info-result",
+  id: string,
+  name?: string,
+  layout?: LayoutProperties,
+  visual?: VisualProperties,
+  scene?: SceneProperties,
+  frame?: FrameProperties
 }
 
 export interface RemoveNode {
-    type: "remove-node",
-    id: number
+  type: "remove-node",
+  id: number
 }
 
 export interface GetCurrentSelectedNodes {
-    type: "get-current-selected-nodes"
+  type: "get-current-selected-nodes"
 }
 
 export interface GetLayerVisual {
@@ -484,34 +484,36 @@ export interface GetLayerVisual {
 }
 
 export type Command = 
-    CreateNode | EditNodeProperties | 
-    GetNodeInfo | RemoveNode | 
-    GetLayerVisual | GetCurrentSelectedNodes;
+  CreateNode | EditNodeProperties | 
+  GetNodeInfo | RemoveNode | 
+  GetLayerVisual | GetCurrentSelectedNodes;
 
 export interface ExecuteCommand {
-    type: "execute_command",
-    id: string, 
-    cmd: Command
+  type: "execute_command",
+  id: string, 
+  cmd: Command
 }
 
 export interface ExecuteCommands {
-    type: "execute_commands",
-    id: string, 
-    cmds: ExecuteCommand[]
+  type: "execute_commands",
+  id: string, 
+  cmds: ExecuteCommand[]
 }
 
 export interface ExecuteCommandResult {
-    type: "execute_command_result",
-    cmd: Command,
-    id: string,
-    status: "success" | "failure",
-    visual?: string,
-    nodeInfo?: GetNodeInfoResult
+  type: "execute_command_result",
+  cmd: Command,
+  id: string,
+  status: "success" | "failure",
+  visual?: string,
+  nodeInfo?: Array<GetNodeInfoResult>,
+  error?: string
 }
 
 export interface ExecuteCommandsResult {
-    type: "execute_commands_result",
-    cmds: ExecuteCommandResult[],
-    id: string,
-    status: "success" | "failure" | "partial_failures"
+  type: "execute_commands_result",
+  cmds: ExecuteCommandResult[],
+  id: string,
+  status: "success" | "failure" | "partial_failures",
+  error?: string
 }

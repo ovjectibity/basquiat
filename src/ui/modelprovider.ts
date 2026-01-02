@@ -15,7 +15,7 @@ import { FunctionCallingConfigMode, GoogleGenAI,
 } from "@google/genai";
 import { Tool as AnthTool } from "@anthropic-ai/sdk/resources";
 import { FigmaDesignToolZ, FigmaDesignToolSchema, FigmaDesignToolResponseSchema } from "../figmatoolschema.js";
-import { AssistantModelMessageSchema, AssistantModelMessageZ, ModelMessageSchema } from "../messagesschema.js";
+import { AssistantModelMessageSchema, AssistantModelMessageZ } from "../messagesschema.js";
 import { BetaContentBlockParam, BetaMessageParam } from "@anthropic-ai/sdk/resources/beta.mjs";
 
 interface ModelProvider {
@@ -58,7 +58,7 @@ class GoogleAIModel implements ModelProvider {
 
     getTools(): Array<GoogleTool> {
         if(this.tools.figma) {
-            console.dir(FigmaDesignToolSchema);
+            // console.dir(FigmaDesignToolSchema);
             return [{
                 functionDeclarations: [{
                     name: "figma-design-tool",
@@ -161,6 +161,7 @@ class GoogleAIModel implements ModelProvider {
                             id: content.content.id,
                             name: content.name,
                             //TODO: Check if this can be handled any better?
+                            //Errors are already handled in FigmaDesignToolResult
                             response: content.content as Record<string, any>,
                             willContinue: false
                         }
@@ -238,7 +239,8 @@ class AnthropicModel implements ModelProvider {
                         type: "tool_result",
                         content: [{
                             type: "text",
-                            text: JSON.stringify(content.content.cmds)
+                            //Errors are already handled in FigmaDesignToolResult
+                            text: JSON.stringify(content.content)
                         }]
                     }]
                 });

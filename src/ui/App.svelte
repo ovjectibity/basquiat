@@ -11,7 +11,7 @@
   import Messages from './messages.svelte';
   import Input from './input.svelte';
   import ManageKeysOverlay from './managekeysoverlay.svelte';
-  import { FigmaAgentThread } from "./agent.js";
+  import { FigmaAgentThread, type AgentToolConsentLevel } from "./agent.js";
   import { modelOptions, type CommandExecutor, type DropdownCategory, type DropdownItem } from '../common.js';
   import { FigmaPluginCommandsDispatcher } from './uicommandsexecutor.js';
 
@@ -33,6 +33,7 @@
   let cmdExec: CommandExecutor;
   let showApiKeyOverlay = $state(false);
   let insistApiKeyOverlay = $state(false);
+  let consentLevel: AgentToolConsentLevel = $state("ask");
   let threadsList = new Map<number,ThreadBase>();
   let loadedThreadAgents: Map<number,FigmaAgentThread> = new Map();
 
@@ -252,7 +253,7 @@
     }
   }
 
-  function processUserMessage() {
+  async function processUserMessage() {
     const message = userInput.trim();
     userInput = "";
     const userMessage = {
@@ -264,11 +265,20 @@
     } satisfies UserModelMessage;
     messages.push(userMessage);
     messages = [...messages];
-    loadedThreadAgents.get(currentThread).
-    ingestUserInput(userMessage)
-    .catch(e => {
+    try {
+      let agent = loadedThreadAgents.get(currentThread).
+                  ingestUserInput(userMessage);
+      let res = await agent.next(); 
+      while(!res.done) {
+        if(res.value === "need-user-consent") {
+          console.log(`Asking for user consent for the tool call`);
+          //TODO: Provided consent directly, surface this to the user
+          res = await agent.next("user-consented"); 
+        }
+      }
+    } catch(e) {
       console.error(e);
-    });
+    }
   }
 
   async function sendMessage() {
@@ -347,7 +357,7 @@
     onManageApiKeys={openApiKeyOverlay}
   />
 
-  <Messages {messages} {isLoading} />
+  <Messages {messages} {consentLevel} {isLoading} />
 
   <Input
     bind:userInput={userInput}
