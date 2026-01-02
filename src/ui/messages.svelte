@@ -18,37 +18,43 @@
     </div>
   {:else}
     {#each messages as message}
-      <div class="message {message.role}">
-        {#each message.contents as content}
-          {#if content.type === "user_input" || content.type === "user_output"}
+      {#each message.contents as content}
+        {#if content.type === "user_input" || content.type === "user_output"}
+        <div class="message {message.role}">
+          <div class="message-content">
+            {content.content}
+          </div>
+        </div>
+        {:else if content.type === "tool_use" && content.name === "figma-design-tool"}
+        <div class="message {message.role}">
+          <fieldset class="tool-use-fieldset">
+            <legend class="tool-use-legend">Invoking Figma tool</legend>
             <div class="message-content">
-              {content.content}
-            </div>
-          {:else if content.type === "tool_use" && content.name === "figma-design-tool"}
-            <div class="message-content">
-              Invoking Figma tool: 
               {content.content.input.objective}
-              <details>
+              <details class="commands-details">
                 <summary>Commands</summary>
                 {#each content.content.input.commands.cmds as command}
-                  <div>
-                    {command.cmd.type} {(command.cmd as any).id ? `(ID: ${(command.cmd as any).id})` : ''}
-                    <details>
-                      <summary>Arguments</summary>
+                  <!-- <div class="command-item"> -->
+                    <details class="arguments-details">
+                      <summary>
+                        {command.cmd.type} {(command.cmd as any).id ? `(ID: ${(command.cmd as any).id})` : ''}
+                      </summary>
                       <pre>{JSON.stringify(command.cmd, null, 2)}</pre>
                     </details>
-                  </div>
+                  <!-- </div> -->
                 {/each}
               </details>
             </div>
-          {:else if content.type === "tool_result" && content.name === "figma-design-tool"}
-            <div class="message-content">
-              Got this result from the Figma tool:
-              {content.content.status}
-            </div>
-          {/if}
-        {/each}
-      </div>
+          </fieldset>
+        </div>
+        <!-- Skipping the tool result UI for now -->
+        <!-- {:else if content.type === "tool_result" && content.name === "figma-design-tool"}
+          <div class="message-content">
+            Got this result from the Figma tool:
+            {content.content.status}
+          </div> -->
+        {/if}
+      {/each}
     {/each}
   {/if}
   {#if isLoading}

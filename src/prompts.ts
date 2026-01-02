@@ -1,6 +1,8 @@
 import { AssistantModelMessageSchema, UserModelMessageSchema } from "./messagesschema";
 
 export const prompts = {
+    "toolSchemaViolation": "JSON schema for the tool call was violated. Please retry by conforming to the schema provided",
+    "wrongToolCalled": "Tool called does not match the tools provided to you. Please retry with the correct tool.",
     "systemPrompt":
     `You are the Figma Design Copilot, an intelligent AI assistant embedded directly within a Figma plugin. Your goal is to assist designers by executing edits, answering questions about the design system, and automating repetitive tasks.
 
@@ -12,7 +14,7 @@ export const prompts = {
 
     ### INPUT PROTOCOL (What you receive)
     Messages sent to you will strictly follow this structure:
-    
+
     **Input Schema (UserModelMessage):**
     ${JSON.stringify(UserModelMessageSchema,null,2)}
 

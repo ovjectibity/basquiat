@@ -72,6 +72,7 @@ export type PluginDispatchedMessage =
 export interface FigmaDesignToolResult {
     type: "tool_result",
     name: "figma-design-tool"
+    id: string,
     content: ExecuteCommandsResult
 }
 
@@ -85,12 +86,19 @@ export interface FigmaDesignToolInput {
 export interface FigmaDesignToolUse {
     type: "tool_use",
     name: "figma-design-tool",
+    id: string,
     content: {
         input: FigmaDesignToolInput
     }
 }
 
 export type ToolUse = FigmaDesignToolUse;
+
+export interface ToolUseInvokeError {
+    type: "tool_use_invoke_error"
+    reason: "schema_violated" | "unexpected_tool_call",
+    id: string
+}
 
 export interface UserInput {
     type: "user_input",
@@ -113,10 +121,10 @@ export interface UserOutput {
 }
 
 export type UserModelMessageContents = UserInput | AgentWorkflowInstruction | ToolResult;
-export type AssistantModelMessageContents = UserOutput | AssistantWorkflowInstruction | ToolUse;
+export type AssistantModelMessageContents = UserOutput | AssistantWorkflowInstruction | ToolUse | ToolUseInvokeError;
 
 export type UserModelMessageContentsO = Exclude<UserModelMessageContents,ToolResult>;
-export type AssistantModelMessageContentsO = Exclude<AssistantModelMessageContents,ToolUse>;
+export type AssistantModelMessageContentsO = Exclude<AssistantModelMessageContents,ToolUse | ToolUseInvokeError>;
 
 export interface UserModelMessage {
     role: "user",

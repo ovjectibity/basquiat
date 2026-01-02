@@ -223,7 +223,7 @@ export class FigmaExecutor implements CommandExecutor {
                         throw new Error(`Node with id ${cmd.id} not found.`);
                     } else if((node as any).exportAsync) {
                         const image = await (node as any).exportAsync({ format: 'PNG' });
-                        const base64Image = this.uint8ArrayToBase64(image);
+                        const base64Image = this.uint8ArrayToBinary(image);
                         return {
                             type: "execute_command_result",
                             id: executeCmd.id,
@@ -509,12 +509,13 @@ export class FigmaExecutor implements CommandExecutor {
         return Object.keys(props).length > 0 ? props : undefined;
     }
 
-    private uint8ArrayToBase64(bytes: Uint8Array): string {
+    private uint8ArrayToBinary(bytes: Uint8Array): string {
         let binary = '';
         const len = bytes.byteLength;
         for (let i = 0; i < len; i++) {
             binary += String.fromCharCode(bytes[i]);
         }
-        return btoa(binary);
+        return binary;
+        // return window.btoa(binary);
     }
 }

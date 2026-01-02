@@ -76,6 +76,7 @@ body {
 
 .message {
   max-width: 85%;
+  /* width: 100%; */
   display: flex;
 }
 
@@ -362,6 +363,54 @@ body {
   cursor: not-allowed;
   color: #b3b3b3;
 }
+
+/* Tool Use specific styles */
+.tool-use-fieldset {
+  border: 1px solid #383838;
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-top: 12px;
+  color: #ffffff;
+  font-size: 12px;
+  width: 100%;
+}
+
+.tool-use-legend {
+  color: #ffffff;
+  padding: 0 8px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.commands-details,
+.arguments-details {
+  border: 1px solid #383838;
+  border-radius: 4px;
+  padding: 8px;
+  margin-top: 8px;
+  background-color: #1e1e1e;
+}
+
+.commands-details summary,
+.arguments-details summary {
+  cursor: pointer;
+  outline: none;
+  color: #ffffff;
+  font-weight: 500;
+}
+
+/* .command-item {
+  margin-top: 8px;
+  padding-left: 10px;
+  border-left: 2px solid #505050;
+}
+
+.command-item pre {
+  background-color: #2c2c2c;
+  padding: 8px;
+  border-radius: 4px;
+  overflow-x: auto;
+} */
 
 /* Overlay */
 .overlay {

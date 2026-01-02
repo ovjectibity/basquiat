@@ -63,8 +63,8 @@ class GoogleAIModel implements ModelProvider {
 
     getTools(): Array<GoogleTool> {
         if(this.tools.figma) {
-            console.log(`Sending this schema to the Google model:`);
-            console.dir(FigmaDesignToolSchema);
+            // console.log(`Sending this schema to the Google model:`);
+            // console.dir(FigmaDesignToolSchema);
             return [{
                 functionDeclarations: [{
                     name: "figma-design-tool",
@@ -128,21 +128,31 @@ class GoogleAIModel implements ModelProvider {
                             msg.push({
                                 type: "tool_use",
                                 name: "figma-design-tool",
+                                id: content.functionCall.id ? content.functionCall.id : "",
                                 content: {
                                     input: modifiedpv
                                 }
                             });
                         } else {
-                            console.warn("Model output tool call does not conform to the schema");
-                            return Promise.reject(
-                                new Error(`Validation errors:, validationResult.error Received data: ${content.text}`));
+                            console.warn(`Model output tool call does not ` + 
+                                `conform to the schema ${content.text}`);
+                            //Instead of rejecting the promise, continue 
+                            // processing & provide the feedback to model for recovery
+                            msg.push({
+                                type: "tool_use_invoke_error",
+                                reason: "schema_violated",
+                                id: content.functionCall.id ? content.functionCall.id : "",
+                            });
                         }
-                        // this.googleMessages.push({
-                        //     role: "assistant",
-                        //     parts: [content]
-                        // });
                     } else {
-                        return Promise.reject(new Error(`Model evoked an unexpected tool ${content}`));
+                        //Instead of rejecting the promise, continue 
+                        // processing & provide the feedback to model for recovery
+                        console.warn(`Model evoked an unexpected tool ${content}`);
+                        msg.push({
+                            type: "tool_use_invoke_error",
+                            reason: "unexpected_tool_call",
+                            id: content.functionCall.id ? content.functionCall.id : "",
+                        });
                     }
                 }
             }
@@ -165,8 +175,8 @@ class GoogleAIModel implements ModelProvider {
                 res.push(
                     {
                         inlineData: {
-                            mimeType: "",
-                            data: cmd.visual
+                            mimeType: "image/png",
+                            data: btoa(cmd.visual)
                         }
                     }
                 );
@@ -267,8 +277,8 @@ class AnthropicModel implements ModelProvider {
                 {
                     type: "image",
                     source: {
-                        data: cmd.visual,
-                        media_type: 'image/jpeg',
+                        data: btoa(cmd.visual),
+                        media_type: 'image/png',
                         type: 'base64'
                     }
                 }
@@ -345,6 +355,7 @@ class AnthropicModel implements ModelProvider {
                         msg.push({
                             type: "tool_use",
                             name: "figma-design-tool",
+                            id: content.id,
                             content: {
                                 input: content.input as FigmaDesignToolInput
                             }
@@ -354,32 +365,34 @@ class AnthropicModel implements ModelProvider {
                         //     content: [content]
                         // });
                     } else {
-                        console.warn("Model output tool call does not conform to the schema");
-                        return Promise.reject(
-                            new Error(`Validation errors:, validationResult.error Received data: ${content.input}`));
+                        console.warn(`Model output tool call does not conform to the schema ${content}`);
+                        msg.push({
+                            type: "tool_use_invoke_error",
+                            reason: "schema_violated",
+                            id: content.id
+                        });
                     }
                 } else {
-                    return Promise.reject(new Error(`Model evoked an unexpected tool ${content}`));
+                    console.warn(`Model evoked an unexpected tool ${content}`);
+                    msg.push({
+                        type: "tool_use_invoke_error",
+                        reason: "unexpected_tool_call",
+                        id: content.id
+                    });
                 }
             } else if(content.type === "text") {
-                try {
-                    let modifiedp: any = JSON.parse(content.text);
-                    // Validate using Zod
-                    const validationResult = AssistantModelMessageZ.safeParse(modifiedp);
-                    if(validationResult.success) {
-                        // console.log("Model output conforms to the schema, got this messages array: ",
-                        // modifiedp.messages);
-                        let modifiedpv = modifiedp as AssistantModelMessageO;
-                        // this.anthMessages.push(AnthropicModel.translateToAnthMessage(modifiedpv));
-                        msg = msg.concat(modifiedpv.contents);
-                    } else {
-                        console.warn("Model output message does not conform to the schema");
-                        return Promise.reject(
-                            new Error(`Validation errors:, validationResult.error Received data: ${content.text}`));
-                    }
-                } catch(e) {
-                    console.log(`Parsing model output as JSON probably failed. Got LLM output ${content.text}`);
-                    return Promise.reject(new Error(`Error when processing LLM response ${e}`));
+                let modifiedp: any = JSON.parse(content.text);
+                // Validate using Zod
+                const validationResult = AssistantModelMessageZ.safeParse(modifiedp);
+                if(validationResult.success) {
+                    // console.log("Model output conforms to the schema, got this messages array: ",
+                    // modifiedp.messages);
+                    let modifiedpv = modifiedp as AssistantModelMessageO;
+                    // this.anthMessages.push(AnthropicModel.translateToAnthMessage(modifiedpv));
+                    msg = msg.concat(modifiedpv.contents);
+                } else {
+                    console.warn(`Model output message does not conform to the schema ${content.text}`);
+                    return Promise.reject(new Error(`Model output message does not conform to the schema ${content.text}`));
                 }
             }
         }
