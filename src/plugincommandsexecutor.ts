@@ -103,11 +103,11 @@ export class FigmaExecutor implements CommandExecutor {
                             id: executeCmd.id,
                             cmd: cmd,
                             status: "success",
-                            nodeInfo: {
+                            nodeInfo: [{
                                 type: "get-node-info-result",
                                 id: newNode.id,
                                 name: newNode.name,
-                            }
+                            }]
                         };
                     } else {
                         throw new Error("Failed to create node.");
@@ -134,11 +134,11 @@ export class FigmaExecutor implements CommandExecutor {
                         id: executeCmd.id,
                         cmd: cmd,
                         status: "success",
-                        nodeInfo: {
+                        nodeInfo: [{
                             type: "get-node-info-result",
                             id: node.id,
                             name: node.name,
-                        }
+                        }]
                     };
                 }
 
@@ -178,7 +178,7 @@ export class FigmaExecutor implements CommandExecutor {
                         id: executeCmd.id,
                         cmd: cmd,
                         status: "success",
-                        nodeInfo: nodeInfoResult,
+                        nodeInfo: [nodeInfoResult],
                     };
                 }
 
@@ -242,11 +242,11 @@ export class FigmaExecutor implements CommandExecutor {
                         id: executeCmd.id,
                         cmd: cmd,
                         status: "failure",
-                        nodeInfo: {
+                        nodeInfo: [{
                             type: "get-node-info-result",
                             id: "unknown",
                             name: `Unsupported command: ${executeCmd.type}`,
-                        }
+                        }]
                     };
             }
         } catch (error: any) {
@@ -256,11 +256,11 @@ export class FigmaExecutor implements CommandExecutor {
                 id: executeCmd.id,
                 cmd: cmd,
                 status: "failure",
-                nodeInfo: {
+                nodeInfo: [{
                     type: "get-node-info-result",
                     id: "error",
                     name: `Error: ${error.message || "Unknown error"}`,
-                }
+                }]
             };
         }
     }

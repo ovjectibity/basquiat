@@ -360,6 +360,7 @@
   <Messages {messages} {consentLevel} {isLoading} />
 
   <Input
+    bind:consentLevel={consentLevel}
     bind:userInput={userInput}
     {isLoading}
     modelMode = {currentModelMode}

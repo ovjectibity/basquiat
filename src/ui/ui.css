@@ -188,6 +188,14 @@ body {
   gap: 8px;
 }
 
+.input-buttons {
+  width: 100%;
+  display: flex;
+  justify-content: right;
+  align-items: center;
+  gap: 8px;
+}
+
 .send-button {
   padding: 6px 0px;
   border: 1px solid #383838;
@@ -206,6 +214,28 @@ body {
 }
 
 .send-button:hover {
+  background-color: #383838;
+}
+
+.consent-button {
+  padding: 6px 0px;
+  /* border: 1px solid #383838; */
+  border: 0px;
+  background-color: #2c2c2c;
+  /* color: #383838; */
+  color: #ffffff;
+  /* color: #888888; */
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* transition: background-color 0.2s; */
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+}
+
+.consent-button:hover {
   background-color: #383838;
 }
 

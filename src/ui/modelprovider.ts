@@ -8,15 +8,20 @@ import {
     AssistantModelMessageContents,
     ModelMode as ModelProviderName
 } from "../messages.js";
+import { ExecuteCommandResult } from "../figmacommands.js";
 import { FunctionCallingConfigMode, GoogleGenAI, 
     Content as GoogleMessage, 
     Tool as GoogleTool,
-    Part as GoogleMessageParams
+    Part as GoogleMessageParams,
+    FunctionResponsePart as GoogleToolImagesResponse
 } from "@google/genai";
 import { Tool as AnthTool } from "@anthropic-ai/sdk/resources";
 import { FigmaDesignToolZ, FigmaDesignToolSchema, FigmaDesignToolResponseSchema } from "../figmatoolschema.js";
 import { AssistantModelMessageSchema, AssistantModelMessageZ } from "../messagesschema.js";
-import { BetaContentBlockParam, BetaMessageParam } from "@anthropic-ai/sdk/resources/beta.mjs";
+import { BetaContentBlockParam, 
+    BetaMessageParam,
+    BetaImageBlockParam as AnthropicToolImagesResponse 
+} from "@anthropic-ai/sdk/resources/beta.mjs";
 
 interface ModelProvider {
     type: ModelProviderName;
@@ -58,7 +63,8 @@ class GoogleAIModel implements ModelProvider {
 
     getTools(): Array<GoogleTool> {
         if(this.tools.figma) {
-            // console.dir(FigmaDesignToolSchema);
+            console.log(`Sending this schema to the Google model:`);
+            console.dir(FigmaDesignToolSchema);
             return [{
                 functionDeclarations: [{
                     name: "figma-design-tool",
@@ -151,9 +157,28 @@ class GoogleAIModel implements ModelProvider {
         }
     }
 
+    static extractImages(cmds: Array<ExecuteCommandResult>): 
+    Array<GoogleToolImagesResponse> {
+        let res = new Array();
+        cmds.forEach(cmd => {
+            if(cmd.visual) {
+                res.push(
+                    {
+                        inlineData: {
+                            mimeType: "",
+                            data: cmd.visual
+                        }
+                    }
+                );
+            }
+        });
+        return res;
+    }
+
     async ingestUserMessage(msg: UserModelMessage): Promise<AssistantModelMessage> {
         for(let content of msg.contents) {
             if(content.type === "tool_result") {
+                let images = GoogleAIModel.extractImages(content.content.cmds);
                 this.googleMessages.push({
                     role: msg.role,
                     parts: [{
@@ -163,7 +188,11 @@ class GoogleAIModel implements ModelProvider {
                             //TODO: Check if this can be handled any better?
                             //Errors are already handled in FigmaDesignToolResult
                             response: content.content as Record<string, any>,
-                            willContinue: false
+                            willContinue: false,
+                            //Added images seperately if available
+                            //TODO: Images are being loosely given currently, 
+                            // without associating with cmd 
+                            parts: images
                         }
                     }]
                 });
@@ -229,19 +258,42 @@ class AnthropicModel implements ModelProvider {
         this.modelName = modelKey;
     }
 
+    static extractImages(cmds: Array<ExecuteCommandResult>): 
+    Array<AnthropicToolImagesResponse> {
+        let res = new Array();
+        cmds.forEach(cmd => {
+            if(cmd.visual) {
+                let img: AnthropicToolImagesResponse = 
+                {
+                    type: "image",
+                    source: {
+                        data: cmd.visual,
+                        media_type: 'image/jpeg',
+                        type: 'base64'
+                    }
+                }
+                res.push(img);
+            }
+        });
+        return res;
+    }
+
     async ingestUserMessage(msg: UserModelMessage): Promise<AssistantModelMessage> {
         for(let content of msg.contents) {
             if(content.type === "tool_result") {
+                let images = AnthropicModel.extractImages(content.content.cmds);
                 this.anthMessages.push({
                     role: "user",
                     content: [{
                         tool_use_id: content.content.id,
                         type: "tool_result",
+                        //TODO: Images are being loosely given currently, 
+                        // without associating with cmd 
                         content: [{
                             type: "text",
                             //Errors are already handled in FigmaDesignToolResult
                             text: JSON.stringify(content.content)
-                        }]
+                        },...images]
                     }]
                 });
             } else {
@@ -287,17 +339,25 @@ class AnthropicModel implements ModelProvider {
         for(let content of modelOutput) {
             if(content.type === "tool_use") {
                 if(content.name === "figma-design-tool") {
-                    msg.push({
-                        type: "tool_use",
-                        name: "figma-design-tool",
-                        content: {
-                            input: content.input as FigmaDesignToolInput
-                        }
-                    });
-                    // this.anthMessages.push({
-                    //     role: "assistant",
-                    //     content: [content]
-                    // });
+                    //Validate the functional call here as FigmaDesignToolInput
+                    const validationResult = FigmaDesignToolZ.safeParse(content.input);
+                    if(validationResult.success) {
+                        msg.push({
+                            type: "tool_use",
+                            name: "figma-design-tool",
+                            content: {
+                                input: content.input as FigmaDesignToolInput
+                            }
+                        });
+                        // this.anthMessages.push({
+                        //     role: "assistant",
+                        //     content: [content]
+                        // });
+                    } else {
+                        console.warn("Model output tool call does not conform to the schema");
+                        return Promise.reject(
+                            new Error(`Validation errors:, validationResult.error Received data: ${content.input}`));
+                    }
                 } else {
                     return Promise.reject(new Error(`Model evoked an unexpected tool ${content}`));
                 }
