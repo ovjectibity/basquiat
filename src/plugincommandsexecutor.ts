@@ -67,6 +67,8 @@ export class FigmaExecutor implements CommandExecutor {
                             newNode.name = "New Page Frame";
                             break;
                         case "text":
+                            // Load a default font before creating text node
+                            await figma.loadFontAsync({ family: "Inter", style: "Regular" });
                             newNode = figma.createText();
                             newNode.characters = "New Text"; // Default text
                             break;
@@ -118,6 +120,9 @@ export class FigmaExecutor implements CommandExecutor {
                     node = await getNode(cmd.id);
                     if (!node) {
                         throw new Error(`Node with id ${cmd.id} not found.`);
+                    }
+                    if (node.type === "TEXT") {
+                        await figma.loadFontAsync((node as TextNode).fontName as FontName);
                     }
                     // Apply layout properties
                     this.applyLayoutProperties(node, cmd.layout);
@@ -236,7 +241,43 @@ export class FigmaExecutor implements CommandExecutor {
                             `It's a ${node.type}.`);
                     }
                 }
-                default:
+
+                case "get-current-page-node": {
+                    const currentPage = figma.currentPage;
+                    const nodeInfoResult: GetNodeInfoResult = {
+                        type: "get-node-info-result",
+                        id: currentPage.id,
+                        name: currentPage.name,
+                    };
+
+                    for (const item of cmd.needed) {
+                        switch (item) {
+                            case "name":
+                                nodeInfoResult.name = currentPage.name;
+                                break;
+                            case "layout":
+                                // Page doesn't have layout properties in the same way as SceneNode
+                                // For now, we can skip or return an empty object
+                                break;
+                            case "scene":
+                                nodeInfoResult.scene = this.getSceneProperties(currentPage);
+                                break;
+                            case "frame":
+                                // Page is not a FrameNode
+                                break;
+                        }
+                    }
+
+                    return {
+                        type: "execute_command_result",
+                        id: executeCmd.id,
+                        cmd: cmd,
+                        status: "success",
+                        nodeInfo: [nodeInfoResult],
+                    };
+                }
+
+                default: 
                     return {
                         type: "execute_command_result",
                         id: executeCmd.id,

@@ -393,7 +393,7 @@
       return;
     }
     isThreadSaving = true;
-    let saveId = Math.random() * 10;
+    let saveId = Math.trunc(Math.random() * 10000);
     let saveThreadMsg: SaveThreads = {
       type: "save_threads",
       id: saveId,
@@ -410,9 +410,11 @@
     }, '*');
     (new Promise<void>((res,rej) => {
       let saveThreadResponseHandler = (event) => {
+        // console.log(`Called saveThreadResponseHandler ${saveId}`);
+        // console.dir(event);
         const msg = event.data.pluginMessage;
         if(msg && msg.type === "save_threads_response" && 
-          msg.saveId === saveId) {
+          msg.id === saveId) {
           //Remove handler
           window.removeEventListener('message',saveThreadResponseHandler);
           console.log(`Thread saved successfully`);
@@ -470,6 +472,16 @@
       agent.updateConsent(consentLevel);
     });
   }
+
+  function handleThreadClear() {
+    //Clean up: 
+    console.log(`Clearing current thread`);
+    let agent = loadedThreadAgents.get(currentThread);
+    agent.setMessages([]);
+    agent.cancelTurn();
+    messages=[];
+    needConsent;
+  }
 </script>
 
 <div class="app">
@@ -477,8 +489,12 @@
    + passing threadcategories might lead to latest 
    values not being captured  -->
   <Header
+    clearThread={handleThreadClear}
     chats={getThreadCategories(threadsList)}
     selectedChatKey={currentThread}
+    isThreadSaving={isThreadSaving}
+    saveThread={handleSave}
+    isLoading={isLoading}
     onChatChange={onChatChange}
     onManageApiKeys={openApiKeyOverlay}
   />
@@ -492,10 +508,8 @@
     modelMode = {currentModelMode}
     showGoogleModels={googleApiKey !== ""}
     showAnthropicModels={anthropicApiKey !== ""}
-    isThreadSaving={isThreadSaving}
     onSend={sendMessage}
     onStop={handleStop}
-    saveThread={handleSave}
     onKeyPress={handleKeyPress}
     selectedModel={currentModelKey}
     onModelChange={onModelChange}

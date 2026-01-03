@@ -3,8 +3,7 @@ import type { FigmaDesignToolInput } from './messages';
 import { ExecuteCommandsResult } from './figmacommands';
 
 // Helper Schemas (simplified for illustration, actual Figma types might be more complex)
-// For now, using z.any() for complex Figma types not fully defined in the provided files
-const TransformZ = z.array(z.array(z.number())).length(3).describe("A 3x2 transformation matrix");
+const TransformZ = z.array(z.array(z.number())).length(2).describe("A 3x2 transformation matrix");
 const RectZ = z.object({
   x: z.number(),
   y: z.number(),
@@ -24,30 +23,120 @@ const BlendModeZ = z.enum([
   'LUMINOSITY'
 ]).describe("Blend modes for layers");
 
-const EffectTypeZ = z.enum([
-  'DROP_SHADOW', 'INNER_SHADOW', 'LAYER_BLUR', 'BACKGROUND_BLUR'
-]).describe("Type of effect");
+const RGBZ = z.object({ r: z.number(), g: z.number(), b: z.number() }).describe("Red, Green, Blue color values");
+const RGBAZ = RGBZ.extend({ a: z.number() }).describe("Red, Green, Blue, Alpha color values");
+const VectorZ = z.object({ x: z.number(), y: z.number() }).describe("A 2D vector with x and y coordinates");
 
-const EffectZ = z.object({
-  type: EffectTypeZ,
-  visible: z.boolean(),
+// Effect Schemas
+const DropShadowEffectZ = z.object({
+  type: z.enum(['DROP_SHADOW']),
+  color: RGBAZ,
+  offset: VectorZ,
   radius: z.number(),
-  // More properties for specific effect types would go here
-}).partial().describe("An effect applied to a layer");
+  spread: z.number().optional(),
+  visible: z.boolean(),
+}).describe("A drop shadow effect");
 
+const InnerShadowEffectZ = z.object({
+  type: z.enum(['INNER_SHADOW']),
+  color: RGBAZ,
+  offset: VectorZ,
+  radius: z.number(),
+  spread: z.number().optional(),
+  visible: z.boolean(),
+}).describe("An inner shadow effect");
+
+const BlurEffectBaseZ = z.object({
+  type: z.enum(['LAYER_BLUR', 'BACKGROUND_BLUR']),
+  radius: z.number(),
+  visible: z.boolean(),
+}).describe("Base blur effect properties");
+
+const BlurEffectNormalZ = BlurEffectBaseZ.extend({
+  blurType: z.enum(['NORMAL']),
+}).describe("A normal blur effect");
+
+const BlurEffectProgressiveZ = BlurEffectBaseZ.extend({
+  blurType: z.enum(['PROGRESSIVE']),
+  startRadius: z.number(),
+  startOffset: VectorZ,
+  endOffset: VectorZ,
+}).describe("A progressive blur effect");
+
+const BlurEffectZ = z.union([BlurEffectNormalZ, BlurEffectProgressiveZ]).describe("A blur effect (normal or progressive)");
+
+const EffectZ = z.union([
+  DropShadowEffectZ,
+  InnerShadowEffectZ,
+  BlurEffectZ,
+]).describe("An effect applied to a layer");
+
+// Paint Schemas
 const SolidPaintZ = z.object({
-  type: z.enum(["SOLID"]),
-  color: z.object({ r: z.number(), g: z.number(), b: z.number(), a: z.number() }).optional(),
-  // Add other paint properties as needed
-});
+  type: z.enum(['SOLID']),
+  color: RGBZ,
+  visible: z.boolean().optional(),
+  opacity: z.number().optional(),
+  blendMode: BlendModeZ.optional(),
+}).describe("A solid color paint");
 
-const PaintZ = z.union([
+const ColorStopZ = z.object({
+  position: z.number(),
+  color: RGBAZ,
+}).describe("A color stop for gradients");
+
+const GradientPaintZ = z.object({
+  type: z.enum(['GRADIENT_LINEAR', 'GRADIENT_RADIAL', 'GRADIENT_ANGULAR', 'GRADIENT_DIAMOND']),
+  gradientTransform: TransformZ,
+  gradientStops: z.array(ColorStopZ),
+  visible: z.boolean().optional(),
+  opacity: z.number().optional(),
+  blendMode: BlendModeZ.optional(),
+}).describe("A gradient paint");
+
+const ImagePaintZ = z.object({
+  type: z.enum(['IMAGE']),
+  scaleMode: z.enum(['FILL', 'FIT', 'CROP', 'TILE']),
+  imageHash: z.string().nullable(),
+  imageTransform: TransformZ.optional(),
+  scalingFactor: z.number().optional(),
+  visible: z.boolean().optional(),
+  opacity: z.number().optional(),
+  blendMode: BlendModeZ.optional(),
+}).describe("An image paint");
+
+const VideoPaintZ = z.object({
+  type: z.enum(['VIDEO']),
+  scaleMode: z.enum(['FILL', 'FIT', 'CROP', 'TILE']),
+  videoHash: z.string().nullable(),
+  videoTransform: TransformZ.optional(),
+  scalingFactor: z.number().optional(),
+  visible: z.boolean().optional(),
+  opacity: z.number().optional(),
+  blendMode: BlendModeZ.optional(),
+}).describe("A video paint");
+
+const PatternPaintZ = z.object({
+  type: z.enum(['PATTERN']),
+  sourceNodeId: z.string(),
+  tileType: z.enum(['RECTANGULAR', 'HORIZONTAL_HEXAGONAL', 'VERTICAL_HEXAGONAL']),
+  scalingFactor: z.number(),
+  spacing: VectorZ,
+  visible: z.boolean().optional(),
+  opacity: z.number().optional(),
+  blendMode: BlendModeZ.optional(),
+}).describe("A pattern paint");
+
+const PaintZ = z.discriminatedUnion('type', [
   SolidPaintZ,
-  // Add other paint types like 'GRADIENT_LINEAR', 'IMAGE', etc. if needed
+  GradientPaintZ,
+  ImagePaintZ,
+  VideoPaintZ,
+  PatternPaintZ,
 ]).describe("A fill or stroke paint");
 
 const StrokeCapZ = z.enum([
-  'NONE', 'ROUND', 'SQUARE', 'ARROW_LINES', 'ARROW_EQUILATERAL'
+  'NONE', 'ROUND', 'SQUARE', 'LINE_ARROW', 'TRIANGLE_ARROW'
 ]).describe("Stroke cap style");
 
 const StrokeJoinZ = z.enum([
@@ -55,33 +144,50 @@ const StrokeJoinZ = z.enum([
 ]).describe("Stroke join style");
 
 const VectorPathZ = z.object({
-  windingRule: z.enum(['NONE', 'EVENODD']),
+  windingRule: z.enum(['NONZERO', 'EVENODD']),
   data: z.string(),
 }).describe("Vector path data");
 
-const DetachedInfoZ = z.object({
+// Detached Info Schemas
+const DetachedInfoLocalZ = z.object({
+  type: z.enum(['local']),
   componentId: z.string(),
-  // Add other properties if necessary
-}).describe("Information about a detached component instance");
+}).describe("Local detached component information");
 
-const LayoutGridTypeZ = z.enum(['GRID', 'ROWS', 'COLUMNS']).describe("Type of layout grid");
+const DetachedInfoLibraryZ = z.object({
+  type: z.enum(['library']),
+  componentKey: z.string(),
+}).describe("Library detached component information");
 
-const LayoutGridZ = z.object({
-  pattern: LayoutGridTypeZ,
-  sectionSize: z.number().optional(),
-  visible: z.boolean(),
-  color: z.object({ r: z.number(), g: z.number(), b: z.number(), a: z.number() }),
-  overlayPosition: z.enum(['TOP', 'BOTTOM']),
-  alignment: z.enum(['MIN', 'MAX', 'CENTER']),
-  gutterSize: z.number().optional(),
-  offset: z.number().optional(),
+const DetachedInfoZ = z.discriminatedUnion('type', [DetachedInfoLocalZ, DetachedInfoLibraryZ])
+  .describe("Information about a detached component instance");
+
+// Layout Grid Schemas
+const RowsColsLayoutGridZ = z.object({
+  pattern: z.enum(['ROWS', 'COLUMNS']),
+  alignment: z.enum(['MIN', 'MAX', 'STRETCH', 'CENTER']),
+  gutterSize: z.number(),
   count: z.number(),
-}).describe("A layout grid definition");
+  sectionSize: z.number().optional(),
+  visible: z.boolean().optional(),
+  color: RGBAZ.optional(),
+  overlayPosition: z.enum(['TOP', 'BOTTOM']).optional(),
+  offset: z.number().optional(),
+}).describe("Rows or columns layout grid definition");
+
+const GridLayoutGridZ = z.object({
+  pattern: z.enum(['GRID']),
+  sectionSize: z.number(),
+  visible: z.boolean().optional(),
+  color: RGBAZ.optional(),
+}).describe("Grid layout grid definition");
+
+const LayoutGridZ = z.discriminatedUnion('pattern', [RowsColsLayoutGridZ, GridLayoutGridZ])
+  .describe("A layout grid definition");
 
 const GridTrackSizeZ = z.object({
-  // Assuming a simple structure for GridTrackSize, adjust if more details are available
-  // e.g., type: z.enum('FIXED') | z.enum('AUTO'), value: z.number()
-  value: z.number(), // Placeholder
+  value: z.number().optional(),
+  type: z.enum(['FLEX', 'FIXED', 'HUG']),
 }).describe("Size of a grid track");
 
 
@@ -246,6 +352,12 @@ const GetLayerVisualZ = z.object({
   id: z.string(),
 }).describe("Command to get visual information of a layer");
 
+const GetCurrentPageNodeZ = z.object({
+  type: z.enum(["get-current-page-node"]),
+  id: z.string(),
+  needed: z.array(NodeInfoItemsZ)
+}).describe("Command to get id of the current page");
+
 // Main Command Union Type
 export const CommandZ = z.discriminatedUnion("type", [
   CreateNodeZ,
@@ -254,6 +366,7 @@ export const CommandZ = z.discriminatedUnion("type", [
   RemoveNodeZ,
   GetCurrentSelectedNodesZ,
   GetLayerVisualZ,
+  GetCurrentPageNodeZ
 ]).describe("Union of all possible Figma commands");
 
 // Execute command schemas

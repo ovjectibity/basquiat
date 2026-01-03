@@ -453,6 +453,12 @@ export type NodeInfoItems =
   "name" | "layout" | 
   "scene" | "frame";
 
+export interface GetCurrentPageNode {
+  type: "get-current-page-node",
+  id: string
+  needed: Array<NodeInfoItems>
+}
+
 export interface GetNodeInfo {
   type: "get-node-info",
   id: string
@@ -486,7 +492,8 @@ export interface GetLayerVisual {
 export type Command = 
   CreateNode | EditNodeProperties | 
   GetNodeInfo | RemoveNode | 
-  GetLayerVisual | GetCurrentSelectedNodes;
+  GetLayerVisual | GetCurrentSelectedNodes | 
+  GetCurrentPageNode;
 
 export interface ExecuteCommand {
   type: "execute_command",

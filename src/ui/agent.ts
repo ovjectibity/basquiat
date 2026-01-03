@@ -183,7 +183,7 @@ class FigmaAgentThread {
             this.status = "waiting-for-user";
             this.turn = null;
         } else {
-            console.error(`cancelTurn called without active turn`);
+            console.warn(`cancelTurn called without active turn`);
         }
     }
 
