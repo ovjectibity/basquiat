@@ -38,7 +38,7 @@ class FigmaAgentThread {
         userSurfacingCb: (msg: Array<UserOutput>) => void) {
         this.id = id;
         this.modelMode = modelMode;
-        this.setupModel(modelMode, apiKey, modelName);
+        this.setupModel(modelMode, modelName, apiKey);
         this.executor = executor;
         this.messages = new Array();
         this.userSurfacingCb = userSurfacingCb;
@@ -57,6 +57,7 @@ class FigmaAgentThread {
     }
 
     setupModel(modelMode: ModelMode, modelName: string, apiKey: string) {
+        console.log(`Using the following apiKey for setupModel ${apiKey}`);
         if(modelMode === "anthropic") {
             this.modelMode = modelMode;
             this.model = new AnthropicModel(

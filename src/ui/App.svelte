@@ -5,7 +5,10 @@
     ModelMessage, SetApiKeys, UserModelMessage, 
     UserOutput, Thread, ThreadBase,
     GetThreads,
-    ModelMode
+    ModelMode,
+
+    SaveThreads
+
   } from "../messages.js";
   import Header from './header.svelte';
   import Messages from './messages.svelte';
@@ -26,8 +29,6 @@
     FigmaPluginCommandsDispatcher 
   } from './uicommandsexecutor.js';
 
-  //TODO: Handle plugin closure by saving all the loaded threads
-  //TODO: Handle model switches
   interface ApiKeys {
     anthropicKey: string,
     googleKey: string
@@ -210,6 +211,8 @@
       let keys = await setupApiKey();
       anthropicApiKey = keys.anthropicKey;
       googleApiKey = keys.googleKey;
+      if(anthropicApiKey === "")
+        currentModelKey = "gemini-3-flash-preview";
     } catch(e) {
       // console.log(`No API keys found: ${e}`);
     }
@@ -228,6 +231,7 @@
           currentModelKey = threadsList.get(currentThread).lastModelUsed;
           let threads = await getStoredThreads([currentThread]);
           initialiseAgentsForThreads(threads);
+          messages = [...loadedThreadAgents.get(currentThread).messages];
         } else {
           console.assert(currentThread === 0);
           console.log(`Setting up a new thread given none is initialised currently`);
@@ -382,6 +386,28 @@
     showApiKeyOverlay = false;
   }
 
+  function handleSave() {
+    let agent = loadedThreadAgents.get(currentThread);
+    if(!agent) {
+      console.error(`No current thread to save, skipping`);
+      return;
+    }
+    let saveThreadMsg: SaveThreads = {
+      type: "save_threads",
+      threads: [{
+        id: currentThread, 
+        title: String(currentThread), 
+        msgs: agent.messages,
+        modelMode: agent.modelMode,
+        lastModelUsed: currentModelKey
+      }]
+    };
+    parent.postMessage({
+      pluginMessage: saveThreadMsg
+    }, '*');
+    console.log('Save thread requested');
+  }
+
   function handleUpdateApiKey(keys: {
       anthropicApiKey: string,
       googleApiKey: string
@@ -396,6 +422,13 @@
       insistApiKeyOverlay = true;
     } else {
       if(threadsList.size === 0 && currentThread === 0) {
+        if(googleApiKey === "" && 
+          modelOptions.get(currentModelKey).provider === "google") {
+          currentModelKey = "claude-haiku-4-5-20251001";
+        } else if(anthropicApiKey === "" && 
+          modelOptions.get(currentModelKey).provider === "anthropic") {
+          currentModelKey = "gemini-3-flash-preview";
+        }
         console.log(`Setting up a new thread given none is initialised currently`);
         currentThread = 1;
         setupNewthread(currentThread);
@@ -432,8 +465,11 @@
     bind:userInput={userInput}
     {isLoading}
     modelMode = {currentModelMode}
+    showGoogleModels={googleApiKey !== ""}
+    showAnthropicModels={anthropicApiKey !== ""}
     onSend={sendMessage}
     onStop={handleStop}
+    saveThread={handleSave}
     onKeyPress={handleKeyPress}
     selectedModel={currentModelKey}
     onModelChange={onModelChange}

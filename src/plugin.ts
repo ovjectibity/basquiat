@@ -64,13 +64,13 @@ figma.ui.onmessage = async (msg: UIDispatchedMessage) => {
     try {
       let keys = await figma.clientStorage.keysAsync();
       let threads = new Array<ThreadBase>();
-      keys.map(async (key) => {
+      for(let key of keys) {
         if(key.startsWith("agent_thread_")) {
           //TODO: Is this enough to not send the msgs prop?
           let thread: ThreadBase = await figma.clientStorage.getAsync(key);
           threads.push(thread);
         }
-      });
+      };
       const res: GetThreadsListResponse = {
         type: "get_threads_list_response",
         threads: threads
@@ -82,12 +82,12 @@ figma.ui.onmessage = async (msg: UIDispatchedMessage) => {
   } else if(msg.type === "get_threads") {
     try {
       let threads = new Array<Thread>();
-      msg.ids.map(async (id: number) => {
+      for(let id of msg.ids) {
         let thread: Thread = 
           await figma.clientStorage.getAsync(
             "agent_thread_" + String(id));
           threads.push(thread);
-      });
+      }
       const res: GetThreadsResponse = {
         type: "get_threads_response",
         threads: threads
@@ -97,10 +97,13 @@ figma.ui.onmessage = async (msg: UIDispatchedMessage) => {
         console.error("Encountered error while getting threads");
     }
   } else if(msg.type === "save_threads") {
+    // console.log(`Save thread requested: ${msg}`);
     for(let thread of msg.threads) {
       try {
+        // console.log(`Save thread item requested: ${thread}`);
         await figma.clientStorage.setAsync(
           "agent_thread_" + String(thread.id),thread);
+        // console.log(`Save thread item done: ${thread}`);
       } catch(e) {
         console.error("Encountered error while saving threads");
       }

@@ -12,8 +12,11 @@
     userInput: string;
     isLoading: boolean;
     modelMode: ModelMode;
+    showGoogleModels: boolean;
+    showAnthropicModels: boolean;
     onSend: () => void;
     onStop: () => void;
+    saveThread: () => void;
     onKeyPress: (event: KeyboardEvent) => void;
     selectedModel: string;
     onModelChange: (model: string) => void;
@@ -25,8 +28,11 @@
     userInput = $bindable(),
     isLoading,
     modelMode,
+    showGoogleModels,
+    showAnthropicModels,
     onSend,
     onStop,
+    saveThread,
     onKeyPress,
     selectedModel,
     onModelChange,
@@ -43,7 +49,9 @@
 
       let disabled: boolean = false; 
       if((modelMode === "anthropic" && providerKey === "google") || 
-          (modelMode === "google" && providerKey === "anthropic")) {
+          (modelMode === "google" && providerKey === "anthropic") || 
+          (providerKey === "google" && !showGoogleModels) || 
+          (providerKey === "anthropic" && !showAnthropicModels)) {
         disabled = true;
       }
       // 1. Create the category if it doesn't exist
@@ -90,10 +98,21 @@
       items={modelCategories(modelOptions)}
       selectedItemKey={selectedModel}
       onSelect={onModelChange}
-      disabled={isLoading}
+      disabled={isLoading || (!showGoogleModels && !showAnthropicModels)}
       position="up"
     />
     <div class="input-buttons">
+      <button
+        class="save-button"
+        onclick={saveThread}
+        title="Save thread"
+      >
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+          <polyline points="17 21 17 13 7 13 7 21"></polyline>
+          <polyline points="7 3 7 8 15 8"></polyline>
+        </svg>
+      </button>
       <button
         class="consent-button"
         onclick={onConsentLevelChange}
