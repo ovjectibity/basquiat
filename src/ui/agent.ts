@@ -20,7 +20,7 @@ type AgentState = "need-user-consent" | "waiting-for-user" | "running";
 type UserToolConsentResponse = "user-consented" | "user-rejected";
 
 class FigmaAgentThread {
-    messages: Array<ModelMessage>;
+    private messages: Array<ModelMessage>;
     executor: CommandExecutor;
     id: number;
     model?: ModelProvider;
@@ -56,8 +56,19 @@ class FigmaAgentThread {
         }
     }
 
+    getMessages() {
+        return this.messages;
+    }
+
+    setMessages(messages: Array<ModelMessage>) {
+        this.messages = messages;
+        if(this.model)
+            this.model.initialiseMessages(this.messages);
+        else console.error(`Model not initialised before setMessages is called`);
+    }
+
     setupModel(modelMode: ModelMode, modelName: string, apiKey: string) {
-        console.log(`Using the following apiKey for setupModel ${apiKey}`);
+        // console.log(`Using the following apiKey for setupModel ${apiKey}`);
         if(modelMode === "anthropic") {
             this.modelMode = modelMode;
             this.model = new AnthropicModel(

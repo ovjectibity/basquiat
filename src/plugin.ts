@@ -4,7 +4,9 @@ import {
   GetThreadsListResponse,
   ThreadBase,
   Thread,
-  GetThreadsResponse
+  GetThreadsResponse,
+  SaveThreads,
+  SaveThreadsResponse
 } from "./messages.js";
 import { FigmaExecutor } from "./plugincommandsexecutor.js";
 
@@ -108,5 +110,10 @@ figma.ui.onmessage = async (msg: UIDispatchedMessage) => {
         console.error("Encountered error while saving threads");
       }
     }
+    const res: SaveThreadsResponse = {
+      type: "save_threads_response",
+      id: msg.id
+    };
+    figma.ui.postMessage(res);
   }
 };

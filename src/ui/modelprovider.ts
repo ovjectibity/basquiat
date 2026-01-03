@@ -1,5 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { 
+    ModelMessage,
     ModelMessageO, 
     FigmaDesignToolInput,
     AssistantModelMessageO, 
@@ -16,7 +17,8 @@ import { FunctionCallingConfigMode, GoogleGenAI,
     FunctionResponsePart as GoogleToolImagesResponse
 } from "@google/genai";
 import { Tool as AnthTool } from "@anthropic-ai/sdk/resources";
-import { FigmaDesignToolZ, FigmaDesignToolSchema, FigmaDesignToolResponseSchema } from "../figmatoolschema.js";
+import { FigmaDesignToolZ, FigmaDesignToolSchema, 
+    FigmaDesignToolResponseSchema } from "../figmatoolschema.js";
 import { AssistantModelMessageSchema, AssistantModelMessageZ } from "../messagesschema.js";
 import { BetaContentBlockParam, 
     BetaMessageParam,
@@ -29,6 +31,7 @@ interface ModelProvider {
     ingestUserMessage(msg: UserModelMessage,
         abortSignal?: AbortSignal): Promise<AssistantModelMessage>;
     updateModelKey(modelKey: string): void;
+    initialiseMessages(messages: Array<ModelMessage>): void;
 }
 
 interface ToolsConfig {
@@ -77,16 +80,48 @@ class GoogleAIModel implements ModelProvider {
         } else return []; 
     }
 
-    static translateToGoogleMessage(msg: ModelMessageO): GoogleMessage {
+    static translateToGoogleMessage(msg: ModelMessage): GoogleMessage {
         let params: Array<GoogleMessageParams> = new Array();
         for(const content of msg.contents) {
-            params.push({
-                text: JSON.stringify(content)
-            });
+            if(content.type === "tool_use" || 
+                content.type === "tool_use_invoke_error") {
+                params.push({
+                    functionCall: {
+                        id: content.id,
+                        name: content.name,
+                        args: content.content as Record<string, any>
+                    }
+                });
+            } else if(content.type === "user_input" || 
+                content.type === "user_output" || 
+                content.type === "agent_workflow_instruction" || 
+                content.type === "assistant_workflow_instruction") {
+                params.push({
+                    text: JSON.stringify(content)
+                });
+            } else if(content.type === "tool_result") {
+                let images = GoogleAIModel.extractImages(content.content.cmds);
+                params.push({
+                    functionResponse: {
+                        id: content.content.id,
+                        name: content.name,
+                        response: content.content as Record<string, any>,
+                        willContinue: false,
+                        parts: images
+                    }
+                });
+            }
         }
         return {
             role: msg.role,
             parts: params
+        }
+    }
+
+    initialiseMessages(messages: Array<ModelMessage>) {
+        for(let message of messages) {
+            this.googleMessages.push(
+                GoogleAIModel.translateToGoogleMessage(message));
         }
     }
 
@@ -143,6 +178,10 @@ class GoogleAIModel implements ModelProvider {
                                 type: "tool_use_invoke_error",
                                 reason: "schema_violated",
                                 id: content.functionCall.id ? content.functionCall.id : "",
+                                name: "figma-design-tool",
+                                content: {
+                                    input: content.functionCall.args
+                                }
                             });
                         }
                     } else {
@@ -153,6 +192,10 @@ class GoogleAIModel implements ModelProvider {
                             type: "tool_use_invoke_error",
                             reason: "unexpected_tool_call",
                             id: content.functionCall.id ? content.functionCall.id : "",
+                            name: "figma-design-tool",
+                            content: {
+                                input: content.functionCall.args
+                            }
                         });
                     }
                 }
@@ -378,7 +421,11 @@ class AnthropicModel implements ModelProvider {
                         msg.push({
                             type: "tool_use_invoke_error",
                             reason: "schema_violated",
-                            id: content.id
+                            id: content.id,
+                            name: "figma-design-tool",
+                            content: {
+                                input: content.input
+                            }
                         });
                     }
                 } else {
@@ -386,7 +433,11 @@ class AnthropicModel implements ModelProvider {
                     msg.push({
                         type: "tool_use_invoke_error",
                         reason: "unexpected_tool_call",
-                        id: content.id
+                        id: content.id,
+                        name: "figma-design-tool",
+                        content: {
+                            input: content.input
+                        }
                     });
                 }
             } else if(content.type === "text") {
@@ -422,13 +473,46 @@ class AnthropicModel implements ModelProvider {
         } else return [];  
     }
 
-    static translateToAnthMessage(msg: ModelMessageO): BetaMessageParam {
+    initialiseMessages(messages: Array<ModelMessage>) {
+        for(let message of messages) {
+            this.anthMessages.push(
+                AnthropicModel.translateToAnthMessage(message));
+        }
+    }
+
+    static translateToAnthMessage(msg: ModelMessage): BetaMessageParam {
         let contentBlocks: Array<BetaContentBlockParam> = new Array();
         for(const content of msg.contents) {
-            contentBlocks.push({
-                type: "text",
-                text: JSON.stringify(content)
-            });
+            if(content.type === "tool_use" || 
+                content.type === "tool_use_invoke_error") {
+                contentBlocks.push({
+                    type: "tool_use",
+                    id: content.id,
+                    name: content.name,
+                    input: content.content.input
+                });
+            } else if(content.type === "user_input" || 
+                content.type === "user_output" || 
+                content.type === "agent_workflow_instruction" || 
+                content.type === "assistant_workflow_instruction") {
+                contentBlocks.push({
+                    type: "text",
+                    text: JSON.stringify(content)
+                });
+            } else if(content.type === "tool_result") {
+                let images = AnthropicModel.extractImages(content.content.cmds);
+                contentBlocks.push({
+                    tool_use_id: content.content.id,
+                    type: "tool_result",
+                    //TODO: Images are being loosely given currently, 
+                    // without associating with cmd 
+                    content: [{
+                        type: "text",
+                        //Errors are already handled in FigmaDesignToolResult
+                        text: JSON.stringify(content.content)
+                    },...images]
+                });
+            }
         }
         return {
             role: msg.role,

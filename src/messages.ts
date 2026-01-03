@@ -57,7 +57,13 @@ export interface SaveThreads {
     //Any thread returned here with an 
     // existing id will be replaced 
     type: "save_threads",
-    threads: Array<Thread>
+    threads: Array<Thread>,
+    id: number
+}
+
+export interface SaveThreadsResponse {
+    id: number, 
+    type: "save_threads_response"
 }
 
 export type UIDispatchedMessage = 
@@ -94,11 +100,17 @@ export interface FigmaDesignToolUse {
 
 export type ToolUse = FigmaDesignToolUse;
 
-export interface ToolUseInvokeError {
+export interface FigmaToolUseInvokeError {
     type: "tool_use_invoke_error"
     reason: "schema_violated" | "unexpected_tool_call",
-    id: string
+    name: "figma-design-tool",
+    id: string,
+    content: {
+        input: unknown
+    } 
 }
+
+export type ToolUseInvokeError = FigmaToolUseInvokeError;
 
 export interface UserInput {
     type: "user_input",

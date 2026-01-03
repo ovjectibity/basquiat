@@ -6,9 +6,7 @@
     UserOutput, Thread, ThreadBase,
     GetThreads,
     ModelMode,
-
     SaveThreads
-
   } from "../messages.js";
   import Header from './header.svelte';
   import Messages from './messages.svelte';
@@ -39,6 +37,7 @@
   let userInput: string = $state("");
   let messages: Array<ModelMessage> = $state([]);
   let currentThread: number = $state(0);
+  let isThreadSaving: boolean = $state(false);
   let currentModelMode: ModelMode = $state("not-set");
   let currentModelKey: string = $state("claude-haiku-4-5-20251001");
   let isLoading = $state(false);
@@ -67,7 +66,7 @@
     console.log(`Got message from the model for the user: ${msg} ${id}`);
     let agent = loadedThreadAgents.get(id);
     try {
-      messages = [...agent.messages];
+      messages = [...agent.getMessages()];
     } catch(e) {
       console.log(`Unable to update message thread  ${msg} ${id} ${agent}`);
     }
@@ -116,6 +115,7 @@
       };
       window.addEventListener('message', getApiKeysHandler);
       setTimeout(() => {
+        window.removeEventListener('message',getApiKeysHandler);
         rej(new Error(`Timed out fetching API key`));
       },2000);
     });
@@ -187,8 +187,8 @@
           cmdExec,
           userOutputSurfacing.bind(null,thread.id)
         );
-      //Initialise entire history
-      agent.messages = thread.msgs;
+      // Initialise entire history
+      agent.setMessages(thread.msgs);
       loadedThreadAgents.set(thread.id,agent);
     }
   }
@@ -231,7 +231,7 @@
           currentModelKey = threadsList.get(currentThread).lastModelUsed;
           let threads = await getStoredThreads([currentThread]);
           initialiseAgentsForThreads(threads);
-          messages = [...loadedThreadAgents.get(currentThread).messages];
+          messages = [...loadedThreadAgents.get(currentThread).getMessages()];
         } else {
           console.assert(currentThread === 0);
           console.log(`Setting up a new thread given none is initialised currently`);
@@ -392,12 +392,15 @@
       console.error(`No current thread to save, skipping`);
       return;
     }
+    isThreadSaving = true;
+    let saveId = Math.random() * 10;
     let saveThreadMsg: SaveThreads = {
       type: "save_threads",
+      id: saveId,
       threads: [{
         id: currentThread, 
         title: String(currentThread), 
-        msgs: agent.messages,
+        msgs: agent.getMessages(),
         modelMode: agent.modelMode,
         lastModelUsed: currentModelKey
       }]
@@ -405,6 +408,28 @@
     parent.postMessage({
       pluginMessage: saveThreadMsg
     }, '*');
+    (new Promise<void>((res,rej) => {
+      let saveThreadResponseHandler = (event) => {
+        const msg = event.data.pluginMessage;
+        if(msg && msg.type === "save_threads_response" && 
+          msg.saveId === saveId) {
+          //Remove handler
+          window.removeEventListener('message',saveThreadResponseHandler);
+          console.log(`Thread saved successfully`);
+          res();
+        }
+      };
+      window.addEventListener('message', saveThreadResponseHandler);
+      setTimeout(() => {
+        window.removeEventListener('message',saveThreadResponseHandler);
+        rej(new Error(`Timed out saving thread`));
+      },6000);
+    })).then(() => {
+      isThreadSaving = false;
+    }).catch((e) => {
+      console.warn(`Did not save thread ${e}`);
+      isThreadSaving = false;
+    });
     console.log('Save thread requested');
   }
 
@@ -467,6 +492,7 @@
     modelMode = {currentModelMode}
     showGoogleModels={googleApiKey !== ""}
     showAnthropicModels={anthropicApiKey !== ""}
+    isThreadSaving={isThreadSaving}
     onSend={sendMessage}
     onStop={handleStop}
     saveThread={handleSave}
