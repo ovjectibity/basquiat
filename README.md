@@ -91,13 +91,13 @@ If you want to contribute or audit the code, you can run it locally.
 
 ## 📖 Usage Guide
 
-1.  **Set up your Brain:**
+1.  **Set up:**
     * Open Basquiat.
     * Click the Settings (gear) icon.
     * Enter your **Google Gemini API Key** or **Anthropic API Key**.
     
 2.  **The "Creation" Workflow:**
-    * Ensure nothing is selected.
+    * Select any frame or group you'd like the agent to build on.
     * *Prompt:* "Create a dark mode pricing component with 3 cards: Basic, Pro, and Enterprise. Highlight the Pro card."
     
 3.  **The "Refactor" Workflow (Context Awareness):**
@@ -119,9 +119,9 @@ If you want to contribute or audit the code, you can run it locally.
 
 Contributions are welcome! We want to make this the best open-source design agent in the world.
 
-1.  Create your Feature Branch (`git checkout -b feature/AmazingFeature`)
-2.  Commit your Changes (`git commit -m 'Add some AmazingFeature'`)
-3.  Push to the Branch (`git push origin feature/AmazingFeature`)
+1.  Create your Feature Branch (`git checkout -b feature/newFeature`)
+2.  Commit your Changes (`git commit -m 'Add some newFeature'`)
+3.  Push to the Branch (`git push origin feature/newFeature`)
 4.  Open a Pull Request
 
 ---
