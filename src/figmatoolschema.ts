@@ -272,6 +272,36 @@ const ScenePropertiesZ = z.object({
   locked: z.boolean().optional(),
 }).describe("Scene properties for Figma nodes");
 
+const FontNameZ = z.object({
+  family: z.string(),
+  style: z.string(),
+}).describe("Font family and style");
+
+const LineHeightZ = z.object({
+  unit: z.enum(['PIXELS', 'PERCENT', 'AUTO']),
+  value: z.number().optional(),
+}).describe("Line height definition for text");
+
+const LetterSpacingZ = z.object({
+  unit: z.enum(['PIXELS', 'PERCENT']),
+  value: z.number(),
+}).describe("Letter spacing definition for text");
+
+const TextPropertiesZ = z.object({
+  characters: z.string().optional(),
+  fontName: FontNameZ.optional(),
+  fontSize: z.number().optional(),
+  textAlignHorizontal: z.enum(['LEFT', 'CENTER', 'RIGHT', 'JUSTIFIED']).optional(),
+  textAlignVertical: z.enum(['TOP', 'CENTER', 'BOTTOM']).optional(),
+  textCase: z.enum(['ORIGINAL', 'UPPER', 'LOWER', 'TITLE', 'SMALL_CAPS', 'SMALL_CAPS_FORCED']).optional(),
+  textDecoration: z.enum(['NONE', 'UNDERLINE', 'STRIKETHROUGH']).optional(),
+  textAutoResize: z.enum(['NONE', 'WIDTH_AND_HEIGHT', 'HEIGHT', 'TRUNCATE']).optional(),
+  lineHeight: LineHeightZ.optional(),
+  letterSpacing: LetterSpacingZ.optional(),
+  paragraphSpacing: z.number().optional(),
+  paragraphIndent: z.number().optional(),
+}).describe("Text node properties");
+
 const FramePropertiesZ = z.object({
   detachedInfo: DetachedInfoZ.optional(),
   layoutGrids: z.array(LayoutGridZ).optional(),
@@ -309,6 +339,7 @@ const CreateNodeZ = z.object({
   visual: VisualPropertiesZ.optional(),
   scene: ScenePropertiesZ.optional(),
   frame: FramePropertiesZ.optional(),
+  text: TextPropertiesZ.optional(),
 }).describe("Command to create a new node");
 
 const EditNodePropertiesZ = z.object({
@@ -318,9 +349,10 @@ const EditNodePropertiesZ = z.object({
   visual: VisualPropertiesZ.optional(),
   scene: ScenePropertiesZ.optional(),
   frame: FramePropertiesZ.optional(),
+  text: TextPropertiesZ.optional(),
 }).describe("Command to edit properties of an existing node");
 
-const NodeInfoItemsZ = z.enum(["name", "layout", "scene", "frame"]).describe("Items to request for node info");
+const NodeInfoItemsZ = z.enum(["name", "layout", "scene", "frame", "text"]).describe("Items to request for node info");
 
 const GetNodeInfoZ = z.object({
   type: z.enum(["get-node-info"]),
@@ -336,6 +368,7 @@ export const GetNodeInfoResultZ = z.object({
   visual: VisualPropertiesZ.optional(),
   scene: ScenePropertiesZ.optional(),
   frame: FramePropertiesZ.optional(),
+  text: TextPropertiesZ.optional(),
   componentKey: z.string().optional(),
   componentSource: z.enum(["local", "library"]).optional(),
   componentNodeType: z.string().optional(),

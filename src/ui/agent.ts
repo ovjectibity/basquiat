@@ -122,6 +122,23 @@ class FigmaAgentThread {
         }]);
     }
 
+    private isAssistantSchemaError(error: unknown): boolean {
+        const err = this.getErrorMessage(error);
+        return err.includes("Assistant response is not valid JSON") ||
+            err.includes("Assistant response JSON does not match schema");
+    }
+
+    private buildSchemaFeedbackMessage(error: unknown): UserModelMessage {
+        const err = this.getErrorMessage(error);
+        return {
+            role: "user",
+            contents: [{
+                type: "agent_workflow_instruction",
+                content: `${prompts.outputSchemaViolation} Error: ${err}`
+            }]
+        };
+    }
+
     processModelOutput(modelOutput: AssistantModelMessage): ProcessedModelOutput
     {
         let userOutput: Array<UserOutput> = new Array();
@@ -241,10 +258,13 @@ class FigmaAgentThread {
         } else {
             this.messages.push(userMessage);
             this.status = "running";
+            let schemaRecoveryAttemptCount = 0;
+            const maxSchemaRecoveryAttempts = 2;
             while(this.status === "running") {
                 try {
                     const modelOutput = 
                         await this.model.ingestUserMessage(userMessage);
+                    schemaRecoveryAttemptCount = 0;
                     this.messages.push(modelOutput);
                     //Yielding for correct handling of the cancelTurn behavior
                     yield "running";
@@ -335,6 +355,13 @@ class FigmaAgentThread {
                         return Promise.resolve();
                     } 
                 } catch(e) {
+                    if(this.isAssistantSchemaError(e) && 
+                        schemaRecoveryAttemptCount < maxSchemaRecoveryAttempts) {
+                        schemaRecoveryAttemptCount += 1;
+                        userMessage = this.buildSchemaFeedbackMessage(e);
+                        this.messages.push(userMessage);
+                        continue;
+                    }
                     console.log(`Faced a failure ingesting user ` + 
                         `message ${userMessage} ${e}` + 
                         `Ignoring that like it never happened.`);

@@ -1,6 +1,6 @@
 import { ExecuteCommand, ExecuteCommandResult,
     ExecuteCommands, ExecuteCommandsResult,
-    LayoutProperties, VisualProperties, SceneProperties, FrameProperties,
+    LayoutProperties, VisualProperties, SceneProperties, FrameProperties, TextProperties,
     GetNodeInfoResult,
     Command
 } from "./figmacommands";
@@ -90,6 +90,10 @@ export class FigmaExecutor implements CommandExecutor {
                     }
 
                     if (newNode) {
+                        if (newNode.type === "TEXT") {
+                            await this.loadTextFontsForMutation(newNode, cmd.text);
+                            this.applyTextProperties(newNode, cmd.text);
+                        }
                         // Apply layout properties
                         this.applyLayoutProperties(newNode, cmd.layout);
                         // Apply visual properties
@@ -124,7 +128,8 @@ export class FigmaExecutor implements CommandExecutor {
                         throw new Error(`Node with id ${cmd.id} not found.`);
                     }
                     if (node.type === "TEXT") {
-                        await figma.loadFontAsync((node as TextNode).fontName as FontName);
+                        await this.loadTextFontsForMutation(node as TextNode, cmd.text);
+                        this.applyTextProperties(node as TextNode, cmd.text);
                     }
                     // Apply layout properties
                     this.applyLayoutProperties(node, cmd.layout);
@@ -177,6 +182,11 @@ export class FigmaExecutor implements CommandExecutor {
                                     nodeInfoResult.frame = this.getFrameProperties(node);
                                 }
                                 break;
+                            case "text":
+                                if (node.type === "TEXT") {
+                                    nodeInfoResult.text = this.getTextProperties(node);
+                                }
+                                break;
                         }
                     }
 
@@ -213,6 +223,7 @@ export class FigmaExecutor implements CommandExecutor {
                         visual: this.getVisualProperties(n),
                         scene: this.getSceneProperties(n),
                         frame: n.type === "FRAME" ? this.getFrameProperties(n) : undefined,
+                        text: n.type === "TEXT" ? this.getTextProperties(n) : undefined,
                     }));
                     
                     return {
@@ -423,6 +434,43 @@ export class FigmaExecutor implements CommandExecutor {
                 );
             }
         }
+    }
+
+    private async loadTextFontsForMutation(node: TextNode, text?: TextProperties): Promise<void> {
+        if (text && text.fontName) {
+            await figma.loadFontAsync(text.fontName);
+            return;
+        }
+
+        if (node.fontName !== figma.mixed) {
+            await figma.loadFontAsync(node.fontName as FontName);
+            return;
+        }
+
+        const rangeFonts = node.getRangeAllFontNames(0, node.characters.length);
+        const dedupedFonts = new Map<string, FontName>();
+        for (const font of rangeFonts) {
+            dedupedFonts.set(`${font.family}::${font.style}`, font);
+        }
+        for (const font of dedupedFonts.values()) {
+            await figma.loadFontAsync(font);
+        }
+    }
+
+    private applyTextProperties(node: TextNode, text?: TextProperties) {
+        if (!text) return;
+        if (text.fontName) node.fontName = text.fontName;
+        if (typeof text.fontSize === "number") node.fontSize = text.fontSize;
+        if (text.textAlignHorizontal) node.textAlignHorizontal = text.textAlignHorizontal;
+        if (text.textAlignVertical) node.textAlignVertical = text.textAlignVertical;
+        if (text.textCase) node.textCase = text.textCase;
+        if (text.textDecoration) node.textDecoration = text.textDecoration;
+        if (text.textAutoResize) node.textAutoResize = text.textAutoResize;
+        if (text.lineHeight) node.lineHeight = text.lineHeight;
+        if (text.letterSpacing) node.letterSpacing = text.letterSpacing;
+        if (typeof text.paragraphSpacing === "number") node.paragraphSpacing = text.paragraphSpacing;
+        if (typeof text.paragraphIndent === "number") node.paragraphIndent = text.paragraphIndent;
+        if (typeof text.characters === "string") node.characters = text.characters;
     }
 
     private applyLayoutProperties(node: SceneNode | BaseNode, layout?: LayoutProperties) {
@@ -636,6 +684,23 @@ export class FigmaExecutor implements CommandExecutor {
         const props: SceneProperties = {};
         if ('visible' in node) props.visible = node.visible;
         if ('locked' in node) props.locked = node.locked;
+        return Object.keys(props).length > 0 ? props : undefined;
+    }
+
+    private getTextProperties(node: TextNode): TextProperties | undefined {
+        const props: TextProperties = {};
+        props.characters = node.characters;
+        if (node.fontName !== figma.mixed) props.fontName = node.fontName as FontName;
+        if (node.fontSize !== figma.mixed) props.fontSize = node.fontSize as number;
+        props.textAlignHorizontal = node.textAlignHorizontal;
+        props.textAlignVertical = node.textAlignVertical;
+        if (node.textCase !== figma.mixed) props.textCase = node.textCase as TextCase;
+        if (node.textDecoration !== figma.mixed) props.textDecoration = node.textDecoration as TextDecoration;
+        props.textAutoResize = node.textAutoResize;
+        if (node.lineHeight !== figma.mixed) props.lineHeight = node.lineHeight as LineHeight;
+        if (node.letterSpacing !== figma.mixed) props.letterSpacing = node.letterSpacing as LetterSpacing;
+        props.paragraphSpacing = node.paragraphSpacing;
+        props.paragraphIndent = node.paragraphIndent;
         return Object.keys(props).length > 0 ? props : undefined;
     }
 

@@ -427,6 +427,21 @@ export interface SceneProperties {
   locked?: boolean;
 }
 
+export interface TextProperties {
+  characters?: string;
+  fontName?: FontName;
+  fontSize?: number;
+  textAlignHorizontal?: 'LEFT' | 'CENTER' | 'RIGHT' | 'JUSTIFIED';
+  textAlignVertical?: 'TOP' | 'CENTER' | 'BOTTOM';
+  textCase?: 'ORIGINAL' | 'UPPER' | 'LOWER' | 'TITLE' | 'SMALL_CAPS' | 'SMALL_CAPS_FORCED';
+  textDecoration?: 'NONE' | 'UNDERLINE' | 'STRIKETHROUGH';
+  textAutoResize?: 'NONE' | 'WIDTH_AND_HEIGHT' | 'HEIGHT' | 'TRUNCATE';
+  lineHeight?: LineHeight;
+  letterSpacing?: LetterSpacing;
+  paragraphSpacing?: number;
+  paragraphIndent?: number;
+}
+
 export interface CreateNode {
   type: "create-node",
   nodeName: "rectangle" | "frame" | "group" | 
@@ -435,7 +450,8 @@ export interface CreateNode {
   layout?: LayoutProperties,
   visual?: VisualProperties,
   scene?: SceneProperties,
-  frame?: FrameProperties
+  frame?: FrameProperties,
+  text?: TextProperties
 }
 
 export interface EditNodeProperties {
@@ -444,14 +460,16 @@ export interface EditNodeProperties {
   layout?: LayoutProperties,
   visual?: VisualProperties,
   scene?: SceneProperties,
-  frame?: FrameProperties
+  frame?: FrameProperties,
+  text?: TextProperties
 }
 
 //TODO: fine tune this to expose 
 // the exact properties to be queried
 export type NodeInfoItems = 
   "name" | "layout" | 
-  "scene" | "frame";
+  "scene" | "frame" |
+  "text";
 
 export interface GetCurrentPageNode {
   type: "get-current-page-node",
@@ -473,6 +491,7 @@ export interface GetNodeInfoResult {
   visual?: VisualProperties,
   scene?: SceneProperties,
   frame?: FrameProperties,
+  text?: TextProperties,
   componentKey?: string,
   componentSource?: "local" | "library",
   componentNodeType?: string

@@ -3,7 +3,6 @@ import {
     ModelMessage,
     ModelMessageO, 
     FigmaDesignToolInput,
-    AssistantModelMessageO, 
     UserModelMessage,
     AssistantModelMessage,
     AssistantModelMessageContents,
@@ -36,6 +35,73 @@ interface ModelProvider {
 
 interface ToolsConfig {
     figma: boolean
+}
+
+const defaultToolObjective = "Execute the user's requested design operation";
+
+function normalizeToolArgs(args: unknown): unknown {
+    if(args && typeof args === "object" && !Array.isArray(args)) {
+        const maybeInput = args as Record<string, unknown>;
+        if(typeof maybeInput.objective !== "string") {
+            return {
+                ...maybeInput,
+                objective: defaultToolObjective
+            };
+        }
+    }
+    return args;
+}
+
+function normalizeAssistantTextContent(parsed: unknown): Array<AssistantModelMessageContents> | null {
+    if(parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        const maybeContent = parsed as Record<string, unknown>;
+        if(maybeContent.type === "user_output" && typeof maybeContent.content === "string") {
+            return [{
+                type: "user_output",
+                content: maybeContent.content
+            }];
+        }
+        if(maybeContent.type === "assistant_workflow_instruction" && maybeContent.content === "stop") {
+            return [{
+                type: "assistant_workflow_instruction",
+                content: "stop"
+            }];
+        }
+    }
+
+    if(Array.isArray(parsed)) {
+        const normalized = new Array<AssistantModelMessageContents>();
+        for(const item of parsed) {
+            const itemNormalized = normalizeAssistantTextContent(item);
+            if(itemNormalized && itemNormalized.length === 1) {
+                normalized.push(itemNormalized[0]);
+            } else {
+                return null;
+            }
+        }
+        return normalized.length > 0 ? normalized : null;
+    }
+
+    return null;
+}
+
+function parseAssistantTextBlock(textBlock: string): Array<AssistantModelMessageContents> {
+    try {
+        const parsed = JSON.parse(textBlock);
+        const fullMessage = AssistantModelMessageZ.safeParse(parsed);
+        if(fullMessage.success) {
+            return fullMessage.data.contents as Array<AssistantModelMessageContents>;
+        }
+
+        const normalized = normalizeAssistantTextContent(parsed);
+        if(normalized) {
+            return normalized;
+        }
+    } catch (e) {
+        throw new Error(`Assistant response is not valid JSON: ${e}`);
+    }
+
+    throw new Error(`Assistant response JSON does not match schema: ${textBlock}`);
 }
 
 class GoogleAIModel implements ModelProvider {
@@ -135,32 +201,15 @@ class GoogleAIModel implements ModelProvider {
         if(modelOutput.parts) {
             for(let content of modelOutput.parts) {
                 if(content.text) {
-                    try {
-                        let modifiedp: any = JSON.parse(content.text);
-                        // Validate using Zod
-                        const validationResult = AssistantModelMessageZ.safeParse(modifiedp);
-                        if(validationResult.success) {
-                            // console.log("Model output conforms to the schema, got this messages array: ",
-                            // modifiedp.messages);
-                            let modifiedpv = modifiedp as AssistantModelMessageO;
-                            // this.googleMessages.push(GoogleAIModel.translateToGoogleMessage(modifiedpv));
-                            msg = msg.concat(modifiedpv.contents);
-                        } else {
-                            console.warn("Model output message does not conform to the schema");
-                            return Promise.reject(
-                                new Error(`Validation errors:, validationResult.error Received data: ${content.text}`));
-                        }
-                    } catch(e) {
-                        console.log(`Parsing model output as JSON probably failed. Got LLM output ${content.text}`);
-                        return Promise.reject(new Error(`Error when processing LLM response ${e}`));
-                    }
+                    msg = msg.concat(parseAssistantTextBlock(content.text));
                 }
                 if(content.functionCall) {
                     if(content.functionCall.name === "figma-design-tool") {
                         //Validate the functional call here as FigmaDesignToolInput
-                        const validationResult = FigmaDesignToolZ.safeParse(content.functionCall.args);
+                        const normalizedArgs = normalizeToolArgs(content.functionCall.args);
+                        const validationResult = FigmaDesignToolZ.safeParse(normalizedArgs);
                         if(validationResult.success) {
-                            let modifiedpv = content.functionCall.args as unknown as FigmaDesignToolInput;
+                            let modifiedpv = validationResult.data as FigmaDesignToolInput;
                             msg.push({
                                 type: "tool_use",
                                 name: "figma-design-tool",
@@ -180,7 +229,7 @@ class GoogleAIModel implements ModelProvider {
                                 id: content.functionCall.id ? content.functionCall.id : "",
                                 name: "figma-design-tool",
                                 content: {
-                                    input: content.functionCall.args
+                                    input: normalizedArgs
                                 }
                             });
                         }
@@ -194,7 +243,7 @@ class GoogleAIModel implements ModelProvider {
                             id: content.functionCall.id ? content.functionCall.id : "",
                             name: "figma-design-tool",
                             content: {
-                                input: content.functionCall.args
+                                input: normalizeToolArgs(content.functionCall.args)
                             }
                         });
                     }
@@ -402,14 +451,15 @@ class AnthropicModel implements ModelProvider {
             if(content.type === "tool_use") {
                 if(content.name === "figma-design-tool") {
                     //Validate the functional call here as FigmaDesignToolInput
-                    const validationResult = FigmaDesignToolZ.safeParse(content.input);
+                    const normalizedInput = normalizeToolArgs(content.input);
+                    const validationResult = FigmaDesignToolZ.safeParse(normalizedInput);
                     if(validationResult.success) {
                         msg.push({
                             type: "tool_use",
                             name: "figma-design-tool",
                             id: content.id,
                             content: {
-                                input: content.input as FigmaDesignToolInput
+                                input: validationResult.data as FigmaDesignToolInput
                             }
                         });
                         // this.anthMessages.push({
@@ -424,7 +474,7 @@ class AnthropicModel implements ModelProvider {
                             id: content.id,
                             name: "figma-design-tool",
                             content: {
-                                input: content.input
+                                input: normalizedInput
                             }
                         });
                     }
@@ -436,24 +486,12 @@ class AnthropicModel implements ModelProvider {
                         id: content.id,
                         name: "figma-design-tool",
                         content: {
-                            input: content.input
+                            input: normalizeToolArgs(content.input)
                         }
                     });
                 }
             } else if(content.type === "text") {
-                let modifiedp: any = JSON.parse(content.text);
-                // Validate using Zod
-                const validationResult = AssistantModelMessageZ.safeParse(modifiedp);
-                if(validationResult.success) {
-                    // console.log("Model output conforms to the schema, got this messages array: ",
-                    // modifiedp.messages);
-                    let modifiedpv = modifiedp as AssistantModelMessageO;
-                    // this.anthMessages.push(AnthropicModel.translateToAnthMessage(modifiedpv));
-                    msg = msg.concat(modifiedpv.contents);
-                } else {
-                    console.warn(`Model output message does not conform to the schema ${content.text}`);
-                    return Promise.reject(new Error(`Model output message does not conform to the schema ${content.text}`));
-                }
+                msg = msg.concat(parseAssistantTextBlock(content.text));
             }
         }
         return Promise.resolve({
