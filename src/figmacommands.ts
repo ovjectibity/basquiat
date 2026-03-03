@@ -472,7 +472,10 @@ export interface GetNodeInfoResult {
   layout?: LayoutProperties,
   visual?: VisualProperties,
   scene?: SceneProperties,
-  frame?: FrameProperties
+  frame?: FrameProperties,
+  componentKey?: string,
+  componentSource?: "local" | "library",
+  componentNodeType?: string
 }
 
 export interface RemoveNode {
@@ -489,11 +492,24 @@ export interface GetLayerVisual {
   id: string
 }
 
+export interface GetLibraryComponentsInFile {
+  type: "get-library-components-in-file"
+}
+
+export interface ImportLibraryComponentByKey {
+  type: "import-library-component-by-key"
+  componentKey: string
+  x?: number
+  y?: number
+  name?: string
+}
+
 export type Command = 
   CreateNode | EditNodeProperties | 
   GetNodeInfo | RemoveNode | 
   GetLayerVisual | GetCurrentSelectedNodes | 
-  GetCurrentPageNode;
+  GetCurrentPageNode | GetLibraryComponentsInFile |
+  ImportLibraryComponentByKey;
 
 export interface ExecuteCommand {
   type: "execute_command",

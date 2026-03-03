@@ -46,9 +46,7 @@
       const providerKey = model.provider;
 
       let disabled: boolean = false; 
-      if((modelMode === "anthropic" && providerKey === "google") || 
-          (modelMode === "google" && providerKey === "anthropic") || 
-          (providerKey === "google" && !showGoogleModels) || 
+      if((providerKey === "google" && !showGoogleModels) || 
           (providerKey === "anthropic" && !showAnthropicModels)) {
         disabled = true;
       }

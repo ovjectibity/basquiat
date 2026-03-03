@@ -339,7 +339,7 @@
         console.error(`current turn not active. ` + 
           `Not doing anything in handleStop`);
       } else {
-        await agent.cancelTurn();
+        agent.cancelTurn();
       }
     }
   }
@@ -370,8 +370,32 @@
 
   function onModelChange(modelKey: string) {
     currentModelKey = modelKey;
-    //TODO: Is any thread specific handling required here? 
-    loadedThreadAgents.get(currentThread).updateModelKey(modelKey);
+    let selectedModel = modelOptions.get(modelKey);
+    if(!selectedModel) {
+      console.error(`Unknown model selected: ${modelKey}`);
+      return;
+    }
+
+    let agent = loadedThreadAgents.get(currentThread);
+    if(!agent) {
+      console.error(`No active agent for thread: ${currentThread}`);
+      return;
+    }
+
+    if(selectedModel.provider !== agent.modelMode) {
+      const keyForProvider = selectedModel.provider === "anthropic" ?
+        anthropicApiKey : googleApiKey;
+      if(!keyForProvider) {
+        console.error(`Cannot switch model provider, missing API key for ${selectedModel.provider}`);
+        return;
+      }
+      agent.setupModel(selectedModel.provider, modelKey, keyForProvider);
+      agent.setMessages(agent.getMessages());
+      currentModelMode = selectedModel.provider;
+      return;
+    }
+
+    agent.updateModelKey(modelKey);
   }
 
   function onChatChange(chat: string) {

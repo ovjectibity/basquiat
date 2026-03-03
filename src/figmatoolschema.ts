@@ -336,6 +336,9 @@ export const GetNodeInfoResultZ = z.object({
   visual: VisualPropertiesZ.optional(),
   scene: ScenePropertiesZ.optional(),
   frame: FramePropertiesZ.optional(),
+  componentKey: z.string().optional(),
+  componentSource: z.enum(["local", "library"]).optional(),
+  componentNodeType: z.string().optional(),
 }).describe("Result of getting node information");
 
 const RemoveNodeZ = z.object({
@@ -358,6 +361,18 @@ const GetCurrentPageNodeZ = z.object({
   needed: z.array(NodeInfoItemsZ)
 }).describe("Command to get id of the current page");
 
+const GetLibraryComponentsInFileZ = z.object({
+  type: z.enum(["get-library-components-in-file"]),
+}).describe("Command to list local components and library components referenced in the file");
+
+const ImportLibraryComponentByKeyZ = z.object({
+  type: z.enum(["import-library-component-by-key"]),
+  componentKey: z.string(),
+  x: z.number().optional(),
+  y: z.number().optional(),
+  name: z.string().optional(),
+}).describe("Command to import a library component by key and place an instance");
+
 // Main Command Union Type
 export const CommandZ = z.discriminatedUnion("type", [
   CreateNodeZ,
@@ -366,7 +381,9 @@ export const CommandZ = z.discriminatedUnion("type", [
   RemoveNodeZ,
   GetCurrentSelectedNodesZ,
   GetLayerVisualZ,
-  GetCurrentPageNodeZ
+  GetCurrentPageNodeZ,
+  GetLibraryComponentsInFileZ,
+  ImportLibraryComponentByKeyZ
 ]).describe("Union of all possible Figma commands");
 
 // Execute command schemas

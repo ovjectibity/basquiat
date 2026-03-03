@@ -18,6 +18,12 @@
       messagesContainer.scrollTop = messagesContainer.scrollHeight;
     }
   });
+
+  function isAgentErrorMessage(content: { type: string; content?: string }) {
+    return content.type === "user_output" && 
+      typeof content.content === "string" &&
+      content.content.startsWith("Agent request failed");
+  }
 </script>
 
 <div class="messages" bind:this={messagesContainer}>
@@ -30,7 +36,7 @@
       {#each message.contents as content, contentIndex}
         {#if content.type === "user_input" || content.type === "user_output"}
         <div class="message {message.role}">
-          <div class="message-content">
+          <div class="message-content" class:error-message={isAgentErrorMessage(content)}>
             {content.content}
           </div>
         </div>

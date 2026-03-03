@@ -64,12 +64,16 @@ class FigmaAgentThread {
         this.messages = messages;
         if(this.model)
             this.model.initialiseMessages(this.messages);
-        else console.error(`Model not initialised before setMessages is called`);
+        else if(this.modelMode !== "not-set")
+            console.error(`Model not initialised before setMessages is called`);
     }
 
     setupModel(modelMode: ModelMode, modelName: string, apiKey: string) {
         // console.log(`Using the following apiKey for setupModel ${apiKey}`);
-        if(modelMode === "anthropic") {
+        if(modelMode === "not-set") {
+            this.modelMode = modelMode;
+            this.model = undefined;
+        } else if(modelMode === "anthropic") {
             this.modelMode = modelMode;
             this.model = new AnthropicModel(
                 modelName,apiKey,
@@ -88,6 +92,34 @@ class FigmaAgentThread {
                         figma: true
                     });
         }
+    }
+
+    private getErrorMessage(error: unknown): string {
+        if(error instanceof Error && error.message) {
+            return error.message;
+        }
+        try {
+            return JSON.stringify(error);
+        } catch {
+            return String(error);
+        }
+    }
+
+    private surfaceAgentErrorToUser(error: unknown, context: string) {
+        const formattedError = this.getErrorMessage(error);
+        const content = `Agent request failed (${context}): ${formattedError}`;
+        const errMessage: AssistantModelMessage = {
+            role: "assistant",
+            contents: [{
+                type: "user_output",
+                content
+            }]
+        };
+        this.messages.push(errMessage);
+        this.userSurfacingCb([{
+            type: "user_output",
+            content
+        }]);
     }
 
     processModelOutput(modelOutput: AssistantModelMessage): ProcessedModelOutput
@@ -175,13 +207,19 @@ class FigmaAgentThread {
     async cancelTurn() {
         if(this.turn) {
             console.log(`Cancelling ongoing turn`);
-            //TODO: BUG HERE: the cancelling doesn't seem to work 
-            // Currently pending model calls are orphaned
-            let retStatus = await this.turn.return();
-            console.log(`Got this retStatus: ${retStatus}`);
-            console.dir(retStatus);
+            // Detach immediately so a new user turn can start without waiting
+            // for an in-flight model call to settle.
+            const activeTurn = this.turn;
             this.status = "waiting-for-user";
             this.turn = null;
+            activeTurn.return()
+                .then((retStatus) => {
+                    console.log(`Got this retStatus: ${retStatus}`);
+                    console.dir(retStatus);
+                })
+                .catch((e) => {
+                    console.warn(`Error while cancelling turn: ${e}`);
+                });
         } else {
             console.warn(`cancelTurn called without active turn`);
         }
@@ -194,6 +232,12 @@ class FigmaAgentThread {
     AsyncGenerator<AgentState,void,UserToolConsentResponse> {
         if(!this.model) {
             console.error(`User input being processed while model is not setup`);
+            this.surfaceAgentErrorToUser(
+                new Error("Model client is not initialized"),
+                "model setup"
+            );
+            this.status = "waiting-for-user";
+            return Promise.resolve();
         } else {
             this.messages.push(userMessage);
             this.status = "running";
@@ -294,6 +338,7 @@ class FigmaAgentThread {
                     console.log(`Faced a failure ingesting user ` + 
                         `message ${userMessage} ${e}` + 
                         `Ignoring that like it never happened.`);
+                    this.surfaceAgentErrorToUser(e, "API/SDK call");
                     this.status = "waiting-for-user";
                     return Promise.resolve();
                 }

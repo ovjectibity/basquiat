@@ -157,6 +157,10 @@ body {
   color: #ffffff;
 }
 
+.message-content.error-message {
+  border: 1px solid #8a3434;
+}
+
 .loading-ellipsis {
   display: inline-block;
   white-space: pre; /* Preserve whitespace for dots */

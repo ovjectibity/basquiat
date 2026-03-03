@@ -7,6 +7,8 @@ import { ExecuteCommand, ExecuteCommandResult,
 import { CommandExecutor } from "./common";
 
 export class FigmaExecutor implements CommandExecutor {
+    private didLoadAllPages = false;
+
     async executeCommands(executeCommands: ExecuteCommands): Promise<ExecuteCommandsResult> {
         const results: ExecuteCommandResult[] = [];
         let hasFailures = false;
@@ -277,6 +279,53 @@ export class FigmaExecutor implements CommandExecutor {
                     };
                 }
 
+                case "get-library-components-in-file": {
+                    await this.ensureAllPagesLoaded();
+                    const discovered = await this.getLibraryComponentsInFile();
+                    return {
+                        type: "execute_command_result",
+                        id: executeCmd.id,
+                        cmd: cmd,
+                        status: "success",
+                        nodeInfo: discovered
+                    };
+                }
+
+                case "import-library-component-by-key": {
+                    const imported = await this.importLibraryComponentByKey(cmd.componentKey);
+                    const sourceComponent = imported.type === "COMPONENT_SET" ?
+                        imported.defaultVariant : imported;
+                    const instance = sourceComponent.createInstance();
+
+                    if (typeof cmd.x === "number") {
+                        instance.x = cmd.x;
+                    }
+                    if (typeof cmd.y === "number") {
+                        instance.y = cmd.y;
+                    }
+                    if (cmd.name) {
+                        instance.name = cmd.name;
+                    }
+
+                    figma.currentPage.selection = [instance];
+                    figma.viewport.scrollAndZoomIntoView([instance]);
+
+                    return {
+                        type: "execute_command_result",
+                        id: executeCmd.id,
+                        cmd: cmd,
+                        status: "success",
+                        nodeInfo: [{
+                            type: "get-node-info-result",
+                            id: instance.id,
+                            name: instance.name,
+                            componentKey: sourceComponent.key,
+                            componentSource: "library",
+                            componentNodeType: "INSTANCE"
+                        }]
+                    };
+                }
+
                 default: 
                     return {
                         type: "execute_command_result",
@@ -303,6 +352,76 @@ export class FigmaExecutor implements CommandExecutor {
                     name: `Error: ${error.message || "Unknown error"}`,
                 }]
             };
+        }
+    }
+
+    private async ensureAllPagesLoaded(): Promise<void> {
+        if (!this.didLoadAllPages) {
+            await figma.loadAllPagesAsync();
+            this.didLoadAllPages = true;
+        }
+    }
+
+    private async getLibraryComponentsInFile(): Promise<Array<GetNodeInfoResult>> {
+        const results = new Array<GetNodeInfoResult>();
+        const seenKeys = new Set<string>();
+
+        const components = figma.root.findAllWithCriteria({
+            types: ["COMPONENT", "COMPONENT_SET"]
+        });
+        for (const component of components) {
+            if (component.key) {
+                seenKeys.add(component.key);
+            }
+            results.push({
+                type: "get-node-info-result",
+                id: component.id,
+                name: component.name,
+                componentKey: component.key || undefined,
+                componentSource: component.remote ? "library" : "local",
+                componentNodeType: component.type
+            });
+        }
+
+        const instances = figma.root.findAllWithCriteria({
+            types: ["INSTANCE"]
+        });
+        for (const instance of instances) {
+            const mainComponent = await instance.getMainComponentAsync();
+            if (!mainComponent || !mainComponent.remote || !mainComponent.key) {
+                continue;
+            }
+            if (seenKeys.has(mainComponent.key)) {
+                continue;
+            }
+            seenKeys.add(mainComponent.key);
+            results.push({
+                type: "get-node-info-result",
+                id: mainComponent.key,
+                name: mainComponent.name,
+                componentKey: mainComponent.key,
+                componentSource: "library",
+                componentNodeType: mainComponent.type
+            });
+        }
+
+        results.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+        return results;
+    }
+
+    private async importLibraryComponentByKey(key: string): Promise<ComponentNode | ComponentSetNode> {
+        try {
+            return await figma.importComponentByKeyAsync(key);
+        } catch (componentImportError: unknown) {
+            try {
+                return await figma.importComponentSetByKeyAsync(key);
+            } catch (componentSetImportError: unknown) {
+                throw new Error(
+                    `Failed to import library component key '${key}'. ` +
+                    `Component import error: ${String(componentImportError)}. ` +
+                    `Component set import error: ${String(componentSetImportError)}`
+                );
+            }
         }
     }
 
