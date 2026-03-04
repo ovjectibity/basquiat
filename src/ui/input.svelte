@@ -10,6 +10,8 @@
   interface Props {
     consentLevel: AgentToolConsentLevel;
     userInput: string;
+    attachedFileName: string;
+    hasAttachment: boolean;
     isLoading: boolean;
     modelMode: ModelMode;
     showGoogleModels: boolean;
@@ -20,11 +22,14 @@
     selectedModel: string;
     onModelChange: (model: string) => void;
     onConsentLevelChange: () => void;
+    onAttachmentChange: (file: File | null) => void;
   }
 
   let {
     consentLevel = $bindable(),
     userInput = $bindable(),
+    attachedFileName,
+    hasAttachment,
     isLoading,
     modelMode,
     showGoogleModels,
@@ -34,8 +39,11 @@
     onKeyPress,
     selectedModel,
     onModelChange,
-    onConsentLevelChange
+    onConsentLevelChange,
+    onAttachmentChange
   }: Props = $props();
+
+  let attachmentInput: HTMLInputElement;
 
   let modelCategories = function groupModelsByProvider(
     modelOptions: Map<string, Model>
@@ -74,9 +82,50 @@
     console.dir(categoryMap);
     return categoryMap;
   };
+
+  function isSupportedAttachment(file: File): boolean {
+    const mime = file.type.toLowerCase();
+    if(mime === "image/png" || mime === "image/jpeg") {
+      return true;
+    }
+    const lowerName = file.name.toLowerCase();
+    return lowerName.endsWith(".png") || 
+      lowerName.endsWith(".jpg") || 
+      lowerName.endsWith(".jpeg");
+  }
+
+  function openAttachmentPicker() {
+    if(isLoading) {
+      return;
+    }
+    if(attachmentInput) {
+      attachmentInput.value = "";
+      attachmentInput.click();
+    }
+  }
+
+  function onAttachmentInputChange(event: Event) {
+    const target = event.target as HTMLInputElement;
+    if(!target.files || target.files.length === 0) {
+      return;
+    }
+    const selected = target.files[0];
+    if(!isSupportedAttachment(selected)) {
+      alert("Only PNG and JPG images are supported right now.");
+      return;
+    }
+    onAttachmentChange(selected);
+  }
 </script>
 
 <div class="input-container">
+  <input
+    class="attachment-input-hidden"
+    bind:this={attachmentInput}
+    type="file"
+    accept=".png,.jpg,.jpeg,image/png,image/jpeg"
+    onchange={onAttachmentInputChange}
+  />
   <div class="textarea-wrapper">
     <div
     class="input-area"
@@ -98,6 +147,20 @@
       position="up"
     />
     <div class="input-buttons">
+      <span class="attachment-file-name" title={hasAttachment ? attachedFileName : ""}>
+        {hasAttachment ? attachedFileName : ""}
+      </span>
+      <button
+        class="consent-button"
+        onclick={openAttachmentPicker}
+        title="Attach PNG/JPG image"
+        disabled={isLoading}
+        type="button"
+      >
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21.44 11.05L12.25 20.24C9.93 22.56 6.16 22.56 3.84 20.24C1.52 17.92 1.52 14.15 3.84 11.83L13.03 2.64C14.58 1.09 17.1 1.09 18.65 2.64C20.2 4.19 20.2 6.71 18.65 8.26L9.46 17.45C8.68 18.23 7.42 18.23 6.64 17.45C5.86 16.67 5.86 15.41 6.64 14.63L14.95 6.32"/>
+        </svg>
+      </button>
       <button
         class="consent-button"
         onclick={onConsentLevelChange}
@@ -121,7 +184,7 @@
       <button
         class="send-button"
         onclick={isLoading ? onStop : onSend}
-        disabled={!isLoading && !userInput.trim()}
+        disabled={!isLoading && !userInput.trim() && !hasAttachment}
         title={isLoading ? "Stop response" : "Send message"}
       >
         {#if isLoading}

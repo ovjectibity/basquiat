@@ -14,13 +14,13 @@ export interface Model {
 };
 
 export let ClaudeOpus4 = {
-    key: "claude-opus-4",
+    key: "claude-opus-4-0",
     name: 'Claude Opus 4',
     provider: "anthropic" as ModelMode
 };
 
 export let ClaudeSonnet4 = {
-    key: 'claude-sonnet-4',
+    key: 'claude-sonnet-4-0',
     name: 'Claude Sonnet 4',
     provider: "anthropic" as ModelMode
 };
@@ -62,15 +62,25 @@ export let Gemini25FlashLite = {
 };
 
 export const modelOptions: Map<string,Model> = new Map([
+    ['claude-opus-4-0', ClaudeOpus4],
+    ['claude-sonnet-4-0', ClaudeSonnet4],
+    ['claude-haiku-4-5-20251001', ClaudeHaiku45],
+    // Backward compatible aliases for previously stored thread model keys.
     ['claude-opus-4', ClaudeOpus4],
     ['claude-sonnet-4', ClaudeSonnet4],
-    ['claude-haiku-4-5-20251001', ClaudeHaiku45],
+    ['claude-opus-4-20250514', ClaudeOpus4],
+    ['claude-sonnet-4-20250514', ClaudeSonnet4],
     ['gemini-3-pro-preview', Gemini3Pro],
     ['gemini-3-flash-preview', Gemini3Flash],
     ['gemini-2.5-pro', Gemini2Pro],
     ['gemini-2.5-flash', Gemini25Flash],
     ['gemini-2.5-flash-lite', Gemini25FlashLite]
 ]);
+
+export const normalizeModelKey = (key: string): string => {
+    const match = modelOptions.get(key);
+    return match ? match.key : key;
+};
 
 export type DropdownCategory = {
     label?: string;

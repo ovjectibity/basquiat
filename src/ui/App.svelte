@@ -6,7 +6,8 @@
     UserOutput, Thread, ThreadBase,
     GetThreads,
     ModelMode,
-    SaveThreads
+    SaveThreads,
+    UserInputImage
   } from "../messages.js";
   import Header from './header.svelte';
   import Messages from './messages.svelte';
@@ -19,6 +20,7 @@
   } from "./agent.js";
   import { 
     modelOptions, 
+    normalizeModelKey,
     type CommandExecutor, 
     type DropdownCategory, 
     type DropdownItem } 
@@ -35,6 +37,8 @@
   let anthropicApiKey: string = $state("");
   let googleApiKey: string = $state("");
   let userInput: string = $state("");
+  let attachedImageFile: File | null = $state(null);
+  let attachedImageName: string = $state("");
   let messages: Array<ModelMessage> = $state([]);
   let currentThread: number = $state(0);
   let isThreadSaving: boolean = $state(false);
@@ -175,11 +179,12 @@
   function initialiseAgentsForThreads(threads: Array<Thread>) {
     //Assumes the keys are already set
     for(let thread of threads) {
+      const normalizedModelKey = normalizeModelKey(thread.lastModelUsed);
       let agent = 
         new FigmaAgentThread(
           thread.id,
           thread.modelMode,
-          thread.lastModelUsed,
+          normalizedModelKey,
           //TODO: What if the current model 
           // selected does not match the mode? 
           thread.modelMode === "anthropic" ? 
@@ -194,10 +199,12 @@
   }
 
   function setupNewthread(id: number) {
+    const normalizedModelKey = normalizeModelKey(currentModelKey);
+    currentModelKey = normalizedModelKey;
     let newT: Thread = {
       id: id,
       modelMode: currentModelMode,
-      lastModelUsed: currentModelKey,
+      lastModelUsed: normalizedModelKey,
       title: String(id),
       msgs: []
     };
@@ -227,8 +234,9 @@
         if(threadsList.size > 0) {
           //Setting up data structures to support existing saved threads
           currentThread = Math.max(...threadsList.keys());
-          currentModelMode = threadsList.get(currentThread).modelMode;
-          currentModelKey = threadsList.get(currentThread).lastModelUsed;
+          const currentThreadData = threadsList.get(currentThread);
+          currentModelMode = currentThreadData.modelMode;
+          currentModelKey = normalizeModelKey(currentThreadData.lastModelUsed);
           let threads = await getStoredThreads([currentThread]);
           initialiseAgentsForThreads(threads);
           messages = [...loadedThreadAgents.get(currentThread).getMessages()];
@@ -269,6 +277,54 @@
     }
   }
 
+  function isSupportedAttachment(file: File): boolean {
+    const mime = file.type.toLowerCase();
+    if(mime === "image/png" || mime === "image/jpeg") {
+      return true;
+    }
+    const lowerName = file.name.toLowerCase();
+    return lowerName.endsWith(".png") || 
+      lowerName.endsWith(".jpg") || 
+      lowerName.endsWith(".jpeg");
+  }
+
+  function readFileAsBase64(file: File): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const result = reader.result;
+        if(typeof result !== "string") {
+          reject(new Error("File reader returned empty result"));
+          return;
+        }
+        const commaIndex = result.indexOf(",");
+        if(commaIndex === -1) {
+          reject(new Error("Unexpected Data URL format"));
+          return;
+        }
+        resolve(result.slice(commaIndex + 1));
+      };
+      reader.onerror = () => {
+        reject(new Error("Failed reading attachment"));
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  function onAttachmentChange(file: File | null) {
+    if(!file) {
+      attachedImageFile = null;
+      attachedImageName = "";
+      return;
+    }
+    if(!isSupportedAttachment(file)) {
+      alert("Only PNG and JPG images are supported right now.");
+      return;
+    }
+    attachedImageFile = file;
+    attachedImageName = file.name;
+  }
+
   async function onUserConsentResponse(
     userres: UserToolConsentResponse,
     autoApprove: boolean) {
@@ -297,17 +353,45 @@
   async function processUserMessage() {
     isLoading = true;
     const message = userInput.trim();
-    userInput = "";
-    const userMessage = {
-        role: "user",
-        contents: [{
-            type: "user_input",
-            content: message
-        }]
-    } satisfies UserModelMessage;
-    messages.push(userMessage);
-    messages = [...messages];
     try {
+      const imageFile = attachedImageFile;
+      userInput = "";
+      attachedImageFile = null;
+      attachedImageName = "";
+      const contents = new Array<UserModelMessage["contents"][number]>();
+      if(message !== "") {
+        contents.push({
+          type: "user_input",
+          content: message
+        });
+      }
+
+      if(imageFile) {
+        if(!isSupportedAttachment(imageFile)) {
+          alert("Only PNG and JPG images are supported right now.");
+          isLoading = false;
+          return;
+        }
+        const base64Content = await readFileAsBase64(imageFile);
+        const imageContent: UserInputImage = {
+          type: "user_input_image",
+          fileName: imageFile.name,
+          mimeType: imageFile.type === "image/png" ? "image/png" : "image/jpeg",
+          contentBase64: base64Content
+        };
+        contents.push(imageContent);
+      }
+
+      if(contents.length === 0) {
+        isLoading = false;
+        return;
+      }
+      const userMessage = {
+          role: "user",
+          contents
+      } satisfies UserModelMessage;
+      messages.push(userMessage);
+      messages = [...messages];
       let agent = loadedThreadAgents.get(currentThread);
       if(!agent.isTurnActive()) {
         let res = await agent.runTurn(userMessage);
@@ -323,6 +407,7 @@
       }
     } catch(e) {
       console.error(e);
+      isLoading = false;
     }
   }
 
@@ -345,7 +430,7 @@
   }
 
   async function sendMessage() {
-    if (!userInput.trim() || isLoading) 
+    if ((!userInput.trim() && !attachedImageFile) || isLoading) 
       return;
     if(!anthropicApiKey && !googleApiKey) {
       alert('Please set your API key in settings first');
@@ -354,13 +439,24 @@
     // If the modelMode is not 
     // setup for the current one, do that
     let currentAgent = loadedThreadAgents.get(currentThread);
+    if(!currentAgent) {
+      console.error(`No active agent for thread: ${currentThread}`);
+      return;
+    }
+    const normalizedModelKey = normalizeModelKey(currentModelKey);
+    currentModelKey = normalizedModelKey;
+    const selectedModel = modelOptions.get(normalizedModelKey);
+    if(!selectedModel) {
+      console.error(`Unknown model selected: ${normalizedModelKey}`);
+      return;
+    }
     if(currentAgent.modelMode === "not-set") {
-      let newMode = modelOptions.get(currentModelKey).provider;
+      let newMode = selectedModel.provider;
       console.log(`Setting up current mode of the model given ` + 
         `it is not set & first user message is sent ${newMode} ${currentModelMode}`);
       currentAgent.setupModel(
         newMode,
-        currentModelKey,
+        normalizedModelKey,
         newMode === "anthropic" ? anthropicApiKey : googleApiKey
       );
       currentModelMode = newMode;
@@ -369,10 +465,11 @@
   }
 
   function onModelChange(modelKey: string) {
-    currentModelKey = modelKey;
-    let selectedModel = modelOptions.get(modelKey);
+    const normalizedModelKey = normalizeModelKey(modelKey);
+    currentModelKey = normalizedModelKey;
+    let selectedModel = modelOptions.get(normalizedModelKey);
     if(!selectedModel) {
-      console.error(`Unknown model selected: ${modelKey}`);
+      console.error(`Unknown model selected: ${normalizedModelKey}`);
       return;
     }
 
@@ -389,13 +486,13 @@
         console.error(`Cannot switch model provider, missing API key for ${selectedModel.provider}`);
         return;
       }
-      agent.setupModel(selectedModel.provider, modelKey, keyForProvider);
+      agent.setupModel(selectedModel.provider, normalizedModelKey, keyForProvider);
       agent.setMessages(agent.getMessages());
       currentModelMode = selectedModel.provider;
       return;
     }
 
-    agent.updateModelKey(modelKey);
+    agent.updateModelKey(normalizedModelKey);
   }
 
   function onChatChange(chat: string) {
@@ -426,7 +523,7 @@
         title: String(currentThread), 
         msgs: agent.getMessages(),
         modelMode: agent.modelMode,
-        lastModelUsed: currentModelKey
+        lastModelUsed: normalizeModelKey(currentModelKey)
       }]
     };
     parent.postMessage({
@@ -473,11 +570,14 @@
       insistApiKeyOverlay = true;
     } else {
       if(threadsList.size === 0 && currentThread === 0) {
+        const normalizedModelKey = normalizeModelKey(currentModelKey);
+        currentModelKey = normalizedModelKey;
+        const selectedModel = modelOptions.get(normalizedModelKey);
         if(googleApiKey === "" && 
-          modelOptions.get(currentModelKey).provider === "google") {
+          selectedModel?.provider === "google") {
           currentModelKey = "claude-haiku-4-5-20251001";
         } else if(anthropicApiKey === "" && 
-          modelOptions.get(currentModelKey).provider === "anthropic") {
+          selectedModel?.provider === "anthropic") {
           currentModelKey = "gemini-3-flash-preview";
         }
         console.log(`Setting up a new thread given none is initialised currently`);
@@ -504,6 +604,8 @@
     agent.setMessages([]);
     agent.cancelTurn();
     messages=[];
+    attachedImageFile = null;
+    attachedImageName = "";
     needConsent;
   }
 </script>
@@ -528,6 +630,8 @@
   <Input
     bind:consentLevel={consentLevel}
     bind:userInput={userInput}
+    attachedFileName={attachedImageName}
+    hasAttachment={attachedImageFile !== null}
     {isLoading}
     modelMode = {currentModelMode}
     showGoogleModels={googleApiKey !== ""}
@@ -538,6 +642,7 @@
     selectedModel={currentModelKey}
     onModelChange={onModelChange}
     {onConsentLevelChange}
+    {onAttachmentChange}
   />
   {#if showApiKeyOverlay}
     <ManageKeysOverlay

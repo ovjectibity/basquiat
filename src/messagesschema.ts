@@ -6,6 +6,13 @@ const UserInputZ = z.object({
   content: z.string()
 });
 
+const UserInputImageZ = z.object({
+  type: z.enum(["user_input_image"]),
+  fileName: z.string(),
+  mimeType: z.enum(["image/png", "image/jpeg"]),
+  contentBase64: z.string()
+});
+
 const AgentWorkflowInstructionZ = z.object({
   type: z.enum(["agent_workflow_instruction"]),
   content: z.string()
@@ -23,6 +30,7 @@ const AssistantWorkflowInstructionZ = z.object({
 
 const UserModelMessageContentsZ = z.union([
   UserInputZ, 
+  UserInputImageZ,
   AgentWorkflowInstructionZ
 ]);
 

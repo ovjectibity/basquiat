@@ -117,6 +117,13 @@ export interface UserInput {
     content: string
 }
 
+export interface UserInputImage {
+    type: "user_input_image",
+    fileName: string,
+    mimeType: "image/png" | "image/jpeg",
+    contentBase64: string
+}
+
 export interface AssistantWorkflowInstruction {
     type: "assistant_workflow_instruction",
     content: "stop"
@@ -132,7 +139,7 @@ export interface UserOutput {
     content: string
 }
 
-export type UserModelMessageContents = UserInput | AgentWorkflowInstruction | ToolResult;
+export type UserModelMessageContents = UserInput | UserInputImage | AgentWorkflowInstruction | ToolResult;
 export type AssistantModelMessageContents = UserOutput | AssistantWorkflowInstruction | ToolUse | ToolUseInvokeError;
 
 export type UserModelMessageContentsO = Exclude<UserModelMessageContents,ToolResult>;

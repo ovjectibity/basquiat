@@ -40,6 +40,12 @@
             {content.content}
           </div>
         </div>
+        {:else if content.type === "user_input_image"}
+        <div class="message {message.role}">
+          <div class="message-content">
+            Attached image: {content.fileName}
+          </div>
+        </div>
         {:else if content.type === "tool_use" && content.name === "figma-design-tool"}
         <div class="message {message.role}">
           <fieldset class="tool-use-fieldset">

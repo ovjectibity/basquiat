@@ -5,7 +5,7 @@ import { ModelMessage,
     FigmaDesignToolUse, 
     ToolUseInvokeError
 } from "../messages.js";
-import type { CommandExecutor } from "../common.js";
+import { normalizeModelKey, type CommandExecutor } from "../common.js";
 import { ModelProvider, AnthropicModel, GoogleAIModel } from "./modelprovider.js";
 import { prompts } from "../prompts.js";
 import { ModelMode } from "../messages.js";
@@ -49,8 +49,9 @@ class FigmaAgentThread {
     }
 
     updateModelKey(modelKey: string) {
+        const normalizedModelKey = normalizeModelKey(modelKey);
         if(this.model) {
-            this.model.updateModelKey(modelKey);
+            this.model.updateModelKey(normalizedModelKey);
         } else {
             console.error(`No model object to update model key`);
         }
@@ -69,6 +70,7 @@ class FigmaAgentThread {
     }
 
     setupModel(modelMode: ModelMode, modelName: string, apiKey: string) {
+        const normalizedModelName = normalizeModelKey(modelName);
         // console.log(`Using the following apiKey for setupModel ${apiKey}`);
         if(modelMode === "not-set") {
             this.modelMode = modelMode;
@@ -76,7 +78,7 @@ class FigmaAgentThread {
         } else if(modelMode === "anthropic") {
             this.modelMode = modelMode;
             this.model = new AnthropicModel(
-                modelName,apiKey,
+                normalizedModelName,apiKey,
                 prompts.systemPrompt,
                 {
                     figma: true
@@ -85,7 +87,7 @@ class FigmaAgentThread {
             this.modelMode = modelMode;
             this.model = 
                 new GoogleAIModel(
-                    modelName,
+                    normalizedModelName,
                     apiKey, 
                     prompts.systemPrompt, 
                     {

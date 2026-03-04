@@ -268,6 +268,23 @@ body {
   justify-content: right;
   align-items: center;
   gap: 8px;
+  min-width: 0;
+}
+
+.attachment-input-hidden {
+  display: none;
+}
+
+.attachment-file-name {
+  color: #b3b3b3;
+  font-size: 11px;
+  line-height: 1.2;
+  width: 96px;
+  flex: 0 0 96px;
+  text-align: right;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .send-button {
