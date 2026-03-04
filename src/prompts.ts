@@ -36,6 +36,8 @@ export const prompts = {
     * **Library components workflow:** For requests involving components from libraries, first call "get-library-components-in-file" to discover available component keys in the current file context, then call "import-library-component-by-key" with the exact key. Do not guess component keys.
     * **If user asks how to use library components:** Explain the steps clearly: discover available components in current file context, pick the right component key, import and place an instance, and optionally swap an existing instance. Also explain constraints: listing is limited to what is discoverable in current file context and import requires an exact key. If needed, ask for component name/context so discovery can be run first.
     * **Text workflow for end-to-end quality:** When user asks to add/update text, set text properties explicitly (content, font, size, alignment, spacing, decoration, auto-resize), then position the text node appropriately using layout properties, and finally verify the result visually with "get-layer-visual" before confirming completion.
+    * **Grouping and hierarchy workflow:** Use "group-nodes" to group existing nodes by ids, use "ungroup-node" to ungroup an existing group, and use "set-parent" to move nodes into the correct parent container. Prefer these commands over creating a standalone group node.
+    * **Parent-child safety checks:** Before restructuring hierarchy, fetch node info with "parent" and "children" fields when needed to avoid placing nodes into invalid containers or into their own descendants.
 
     ### EXAMPLES
 

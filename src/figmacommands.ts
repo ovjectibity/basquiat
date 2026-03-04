@@ -469,6 +469,7 @@ export interface EditNodeProperties {
 export type NodeInfoItems = 
   "name" | "layout" | 
   "scene" | "frame" |
+  "parent" | "children" |
   "text";
 
 export interface GetCurrentPageNode {
@@ -492,6 +493,8 @@ export interface GetNodeInfoResult {
   scene?: SceneProperties,
   frame?: FrameProperties,
   text?: TextProperties,
+  parentId?: string,
+  childrenIds?: Array<string>,
   componentKey?: string,
   componentSource?: "local" | "library",
   componentNodeType?: string
@@ -523,12 +526,33 @@ export interface ImportLibraryComponentByKey {
   name?: string
 }
 
+export interface GroupNodes {
+  type: "group-nodes"
+  nodeIds: Array<string>
+  parentId?: string
+  index?: number
+  name?: string
+}
+
+export interface UngroupNode {
+  type: "ungroup-node"
+  id: string
+}
+
+export interface SetParent {
+  type: "set-parent"
+  nodeIds: Array<string>
+  parentId: string
+  index?: number
+}
+
 export type Command = 
   CreateNode | EditNodeProperties | 
   GetNodeInfo | RemoveNode | 
   GetLayerVisual | GetCurrentSelectedNodes | 
   GetCurrentPageNode | GetLibraryComponentsInFile |
-  ImportLibraryComponentByKey;
+  ImportLibraryComponentByKey | GroupNodes |
+  UngroupNode | SetParent;
 
 export interface ExecuteCommand {
   type: "execute_command",

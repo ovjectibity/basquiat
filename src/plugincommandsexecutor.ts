@@ -182,6 +182,16 @@ export class FigmaExecutor implements CommandExecutor {
                                     nodeInfoResult.frame = this.getFrameProperties(node);
                                 }
                                 break;
+                            case "parent":
+                                if ("parent" in node && node.parent) {
+                                    nodeInfoResult.parentId = node.parent.id;
+                                }
+                                break;
+                            case "children":
+                                if ("children" in node) {
+                                    nodeInfoResult.childrenIds = node.children.map(child => child.id);
+                                }
+                                break;
                             case "text":
                                 if (node.type === "TEXT") {
                                     nodeInfoResult.text = this.getTextProperties(node);
@@ -224,6 +234,8 @@ export class FigmaExecutor implements CommandExecutor {
                         scene: this.getSceneProperties(n),
                         frame: n.type === "FRAME" ? this.getFrameProperties(n) : undefined,
                         text: n.type === "TEXT" ? this.getTextProperties(n) : undefined,
+                        parentId: n.parent ? n.parent.id : undefined,
+                        childrenIds: "children" in n ? n.children.map(child => child.id) : undefined,
                     }));
                     
                     return {
@@ -277,6 +289,15 @@ export class FigmaExecutor implements CommandExecutor {
                                 break;
                             case "frame":
                                 // Page is not a FrameNode
+                                break;
+                            case "parent":
+                                nodeInfoResult.parentId = currentPage.parent ? currentPage.parent.id : undefined;
+                                break;
+                            case "children":
+                                nodeInfoResult.childrenIds = currentPage.children.map(child => child.id);
+                                break;
+                            case "text":
+                                // Page is not a TextNode
                                 break;
                         }
                     }
@@ -334,6 +355,132 @@ export class FigmaExecutor implements CommandExecutor {
                             componentSource: "library",
                             componentNodeType: "INSTANCE"
                         }]
+                    };
+                }
+
+                case "group-nodes": {
+                    const uniqueNodeIds = Array.from(new Set(cmd.nodeIds));
+                    if (uniqueNodeIds.length < 2) {
+                        throw new Error(`group-nodes requires at least two unique node ids.`);
+                    }
+
+                    const resolvedNodes = await Promise.all(uniqueNodeIds.map(id => getNode(id)));
+                    const nodesToGroup = new Array<SceneNode>();
+                    for (let i = 0; i < resolvedNodes.length; i++) {
+                        const candidate = resolvedNodes[i];
+                        if (!this.isSceneNode(candidate)) {
+                            throw new Error(`Node with id ${uniqueNodeIds[i]} is not a SceneNode and cannot be grouped.`);
+                        }
+                        nodesToGroup.push(candidate);
+                    }
+
+                    let targetParent: BaseNode & ChildrenMixin;
+                    if (cmd.parentId) {
+                        const resolvedParent = await getNode(cmd.parentId);
+                        if (!this.isChildrenContainer(resolvedParent)) {
+                            throw new Error(`Parent with id ${cmd.parentId} cannot contain children.`);
+                        }
+                        targetParent = resolvedParent;
+                    } else {
+                        const defaultParent = nodesToGroup[0].parent;
+                        if (!defaultParent || !this.isChildrenContainer(defaultParent)) {
+                            throw new Error(`Cannot infer a valid parent container for grouping.`);
+                        }
+                        targetParent = defaultParent;
+                    }
+
+                    const groupNode = typeof cmd.index === "number" ?
+                        figma.group(nodesToGroup, targetParent, cmd.index) :
+                        figma.group(nodesToGroup, targetParent);
+                    if (cmd.name) {
+                        groupNode.name = cmd.name;
+                    }
+
+                    return {
+                        type: "execute_command_result",
+                        id: executeCmd.id,
+                        cmd: cmd,
+                        status: "success",
+                        nodeInfo: [{
+                            type: "get-node-info-result",
+                            id: groupNode.id,
+                            name: groupNode.name,
+                            parentId: groupNode.parent ? groupNode.parent.id : undefined,
+                            childrenIds: groupNode.children.map(child => child.id)
+                        }]
+                    };
+                }
+
+                case "ungroup-node": {
+                    const groupNode = await getNode(cmd.id);
+                    if (!groupNode || groupNode.type !== "GROUP") {
+                        throw new Error(`Node with id ${cmd.id} is not a group.`);
+                    }
+                    const ungroupedChildren = figma.ungroup(groupNode);
+                    return {
+                        type: "execute_command_result",
+                        id: executeCmd.id,
+                        cmd: cmd,
+                        status: "success",
+                        nodeInfo: ungroupedChildren.map(child => ({
+                            type: "get-node-info-result",
+                            id: child.id,
+                            name: child.name,
+                            parentId: child.parent ? child.parent.id : undefined,
+                            childrenIds: "children" in child ? child.children.map(grandChild => grandChild.id) : undefined
+                        }))
+                    };
+                }
+
+                case "set-parent": {
+                    const targetParentCandidate = await getNode(cmd.parentId);
+                    if (!this.isChildrenContainer(targetParentCandidate)) {
+                        throw new Error(`Target parent with id ${cmd.parentId} cannot contain children.`);
+                    }
+                    const targetParent = targetParentCandidate;
+                    const uniqueNodeIds = Array.from(new Set(cmd.nodeIds));
+                    if (uniqueNodeIds.length === 0) {
+                        throw new Error(`set-parent requires at least one node id.`);
+                    }
+
+                    const resolvedNodes = await Promise.all(uniqueNodeIds.map(id => getNode(id)));
+                    const nodesToMove = new Array<SceneNode>();
+                    for (let i = 0; i < resolvedNodes.length; i++) {
+                        const candidate = resolvedNodes[i];
+                        if (!this.isSceneNode(candidate)) {
+                            throw new Error(`Node with id ${uniqueNodeIds[i]} is not a SceneNode and cannot be reparented.`);
+                        }
+                        if (candidate.id === targetParent.id) {
+                            throw new Error(`Node ${candidate.id} cannot be parented to itself.`);
+                        }
+                        if (this.isAncestorOf(candidate, targetParent)) {
+                            throw new Error(`Cannot move node ${candidate.id} into its own descendant ${targetParent.id}.`);
+                        }
+                        nodesToMove.push(candidate);
+                    }
+
+                    let insertionIndex = typeof cmd.index === "number" ? cmd.index : undefined;
+                    for (const child of nodesToMove) {
+                        if (typeof insertionIndex === "number") {
+                            targetParent.insertChild(insertionIndex, child);
+                            insertionIndex += 1;
+                        } else {
+                            targetParent.appendChild(child);
+                        }
+                    }
+
+                    return {
+                        type: "execute_command_result",
+                        id: executeCmd.id,
+                        cmd: cmd,
+                        status: "success",
+                        nodeInfo: nodesToMove.map(child => ({
+                            type: "get-node-info-result",
+                            id: child.id,
+                            name: child.name,
+                            parentId: child.parent ? child.parent.id : undefined,
+                            childrenIds: "children" in child ? child.children.map(grandChild => grandChild.id) : undefined
+                        }))
                     };
                 }
 
@@ -732,6 +879,28 @@ export class FigmaExecutor implements CommandExecutor {
         if ('gridColumnSizes' in node) props.gridColumnSizes = node.gridColumnSizes;
 
         return Object.keys(props).length > 0 ? props : undefined;
+    }
+
+    private isSceneNode(node: BaseNode | null): node is SceneNode {
+        return !!node && "parent" in node;
+    }
+
+    private isChildrenContainer(node: BaseNode | null): node is BaseNode & ChildrenMixin {
+        return !!node &&
+            "children" in node &&
+            typeof (node as ChildrenMixin).appendChild === "function" &&
+            typeof (node as ChildrenMixin).insertChild === "function";
+    }
+
+    private isAncestorOf(ancestorCandidate: SceneNode, descendantCandidate: BaseNode): boolean {
+        let cursor: BaseNode | null = descendantCandidate;
+        while (cursor) {
+            if (cursor.id === ancestorCandidate.id) {
+                return true;
+            }
+            cursor = "parent" in cursor ? cursor.parent : null;
+        }
+        return false;
     }
 
     private uint8ArrayToBinary(bytes: Uint8Array): string {

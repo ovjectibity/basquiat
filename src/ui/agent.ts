@@ -130,6 +130,14 @@ class FigmaAgentThread {
             err.includes("Assistant response JSON does not match schema");
     }
 
+    private isAnthropicToolPairingError(error: unknown): boolean {
+        const err = this.getErrorMessage(error);
+        return err.includes("tool_use") &&
+            err.includes("tool_result") &&
+            (err.includes("immediately after") ||
+                err.includes("corresponding `tool_use` block in the previous message"));
+    }
+
     private buildSchemaFeedbackMessage(error: unknown): UserModelMessage {
         const err = this.getErrorMessage(error);
         return {
@@ -262,11 +270,14 @@ class FigmaAgentThread {
             this.status = "running";
             let schemaRecoveryAttemptCount = 0;
             const maxSchemaRecoveryAttempts = 2;
+            let anthropicHistoryRecoveryAttemptCount = 0;
+            const maxAnthropicHistoryRecoveryAttempts = 1;
             while(this.status === "running") {
                 try {
                     const modelOutput = 
                         await this.model.ingestUserMessage(userMessage);
                     schemaRecoveryAttemptCount = 0;
+                    anthropicHistoryRecoveryAttemptCount = 0;
                     this.messages.push(modelOutput);
                     //Yielding for correct handling of the cancelTurn behavior
                     yield "running";
@@ -276,13 +287,52 @@ class FigmaAgentThread {
                     this.userSurfacingCb(processedOutput.userOutput);
                     if(processedOutput.toolInput && 
                         processedOutput.toolInput.length > 0) {
+                        const toolResultContents = new Array<UserModelMessage["contents"][number]>();
+                        let consentDenied = false;
                         for(let input of processedOutput.toolInput) {
                             if(input.type === "tool_use_invoke_error") {
                                 console.log(`Not invoking tool given there's an error in the call ${input}`);
                                 console.dir(input);
-                                userMessage = {
-                                    role: "user",
-                                    contents: [{
+                                toolResultContents.push({
+                                    type: "tool_result",
+                                    name: "figma-design-tool",
+                                    id: input.id,
+                                    content: {
+                                        type: "execute_commands_result",
+                                        cmds: [],
+                                        id: input.id,
+                                        status: "failure",
+                                        error: input.reason === "schema_violated" ? 
+                                            prompts.toolSchemaViolation : prompts.wrongToolCalled
+                                    }
+                                });
+                            } else {
+                                console.log(`Commands evoked by the model:`);
+                                console.dir(input); 
+                                let userConsent = true;
+                                if(this.consentLevel === "ask" && !consentDenied) {
+                                    console.log(`Yielding ingestUserInput to get ` + 
+                                        `user consent for commands`);
+                                    let userConsentResponse = yield "need-user-consent";
+                                    userConsent = userConsentResponse === "user-consented" ? 
+                                                true : false;
+                                }
+                                if(userConsent && !consentDenied) {
+                                    console.log(`Executing commands now given user consent`);
+                                    let cmdsResult = await this.executor.executeCommands(input.content.input.commands);
+                                    console.log(`Got this result from executing commands:`);
+                                    console.dir(cmdsResult);
+                                    yield "running";
+                                    toolResultContents.push({
+                                        type: "tool_result",
+                                        name: "figma-design-tool",
+                                        id: input.id,
+                                        content: cmdsResult
+                                    });
+                                } else {
+                                    console.log(`Not executing commands given user consent wasn't provided`);
+                                    consentDenied = true;
+                                    toolResultContents.push({
                                         type: "tool_result",
                                         name: "figma-design-tool",
                                         id: input.id,
@@ -291,72 +341,31 @@ class FigmaAgentThread {
                                             cmds: [],
                                             id: input.id,
                                             status: "failure",
-                                            error: input.reason === "schema_violated" ? 
-                                                prompts.toolSchemaViolation : prompts.wrongToolCalled
+                                            error: "User did not provide consent to run the tool call"
                                         }
-                                    }]
-                                };
-                                this.messages.push(userMessage);
-                            } else {
-                                console.log(`Commands evoked by the model:`);
-                                console.dir(input); 
-                                let userConsent = true;
-                                if(this.consentLevel === "ask") {
-                                    console.log(`Yielding ingestUserInput to get ` + 
-                                        `user consent for commands`);
-                                    let userConsentResponse = yield "need-user-consent";
-                                    userConsent = userConsentResponse === "user-consented" ? 
-                                                true : false;
-                                }
-                                if(userConsent) {
-                                    console.log(`Executing commands now given user consent`);
-                                    let cmdsResult = await this.executor.executeCommands(input.content.input.commands);
-                                    console.log(`Got this result from executing commands:`);
-                                    console.dir(cmdsResult);
-                                    yield "running";
-                                    userMessage = {
-                                        role: "user",
-                                        contents: [{
-                                            type: "tool_result",
-                                            name: "figma-design-tool",
-                                            id: input.id,
-                                            content: cmdsResult
-                                        }]
-                                    };
-                                    this.messages.push(userMessage);
-                                } else {
-                                    console.log(`Not executing commands given user consent wasn't provided`);
-                                    userMessage = {
-                                        role: "user",
-                                        contents: [{
-                                            type: "tool_result",
-                                            name: "figma-design-tool",
-                                            id: input.id,
-                                            content: {
-                                                type: "execute_commands_result",
-                                                cmds: [],
-                                                id: input.id,
-                                                status: "failure",
-                                                error: "User did not provide consent to run the tool call"
-                                            }
-                                        }]
-                                    };
-                                    this.messages.push(userMessage);
-                                    //TODO: The tool failure response is added 
-                                    // here but not forwarded to the model 
-                                    // until the next user response
-                                    //We just stop for the user response
-                                    this.status = "waiting-for-user";
-                                    return Promise.resolve();
+                                    });
                                 } 
                             }
                         }
+                        userMessage = {
+                            role: "user",
+                            contents: toolResultContents
+                        };
+                        this.messages.push(userMessage);
                     } else {
                         console.log(`Resolving ingestUserInput now`);
                         this.status = "waiting-for-user";
                         return Promise.resolve();
                     } 
                 } catch(e) {
+                    if(this.modelMode === "anthropic" &&
+                        this.isAnthropicToolPairingError(e) &&
+                        anthropicHistoryRecoveryAttemptCount < maxAnthropicHistoryRecoveryAttempts &&
+                        this.model) {
+                        anthropicHistoryRecoveryAttemptCount += 1;
+                        this.model.initialiseMessages(this.messages);
+                        continue;
+                    }
                     if(this.isAssistantSchemaError(e) && 
                         schemaRecoveryAttemptCount < maxSchemaRecoveryAttempts) {
                         schemaRecoveryAttemptCount += 1;

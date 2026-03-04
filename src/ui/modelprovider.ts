@@ -201,6 +201,7 @@ class GoogleAIModel implements ModelProvider {
     }
 
     initialiseMessages(messages: Array<ModelMessage>) {
+        this.googleMessages = new Array();
         for(let message of messages) {
             this.googleMessages.push(
                 GoogleAIModel.translateToGoogleMessage(message));
@@ -408,24 +409,28 @@ class AnthropicModel implements ModelProvider {
         abortSignal?: AbortSignal): Promise<AssistantModelMessage> {
         const hasToolResults = msg.contents.some((content) => content.type === "tool_result");
         if(hasToolResults) {
+            const toolResultBlocks: Array<BetaContentBlockParam> = [];
             for(let content of msg.contents) {
                 if(content.type !== "tool_result") {
                     continue;
                 }
                 let images = AnthropicModel.extractImages(content.content.cmds);
+                toolResultBlocks.push({
+                    tool_use_id: normalizeToolCallId(content.id),
+                    type: "tool_result",
+                    //TODO: Images are being loosely given currently, 
+                    // without associating with cmd 
+                    content: [{
+                        type: "text",
+                        //Errors are already handled in FigmaDesignToolResult
+                        text: JSON.stringify(content.content)
+                    },...images]
+                });
+            }
+            if(toolResultBlocks.length > 0) {
                 this.anthMessages.push({
                     role: "user",
-                    content: [{
-                        tool_use_id: normalizeToolCallId(content.id),
-                        type: "tool_result",
-                        //TODO: Images are being loosely given currently, 
-                        // without associating with cmd 
-                        content: [{
-                            type: "text",
-                            //Errors are already handled in FigmaDesignToolResult
-                            text: JSON.stringify(content.content)
-                        },...images]
-                    }]
+                    content: toolResultBlocks
                 });
             }
         } else {
@@ -553,6 +558,7 @@ class AnthropicModel implements ModelProvider {
     }
 
     initialiseMessages(messages: Array<ModelMessage>) {
+        this.anthMessages = new Array();
         const allowedToolUseCounts = AnthropicModel.collectAllowedToolUseCounts(messages);
         for(let i = 0; i < messages.length; i++) {
             const message = messages[i];

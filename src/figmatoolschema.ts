@@ -352,7 +352,7 @@ const EditNodePropertiesZ = z.object({
   text: TextPropertiesZ.optional(),
 }).describe("Command to edit properties of an existing node");
 
-const NodeInfoItemsZ = z.enum(["name", "layout", "scene", "frame", "text"]).describe("Items to request for node info");
+const NodeInfoItemsZ = z.enum(["name", "layout", "scene", "frame", "parent", "children", "text"]).describe("Items to request for node info");
 
 const GetNodeInfoZ = z.object({
   type: z.enum(["get-node-info"]),
@@ -369,6 +369,8 @@ export const GetNodeInfoResultZ = z.object({
   scene: ScenePropertiesZ.optional(),
   frame: FramePropertiesZ.optional(),
   text: TextPropertiesZ.optional(),
+  parentId: z.string().optional(),
+  childrenIds: z.array(z.string()).optional(),
   componentKey: z.string().optional(),
   componentSource: z.enum(["local", "library"]).optional(),
   componentNodeType: z.string().optional(),
@@ -406,6 +408,26 @@ const ImportLibraryComponentByKeyZ = z.object({
   name: z.string().optional(),
 }).describe("Command to import a library component by key and place an instance");
 
+const GroupNodesZ = z.object({
+  type: z.enum(["group-nodes"]),
+  nodeIds: z.array(z.string()).min(2),
+  parentId: z.string().optional(),
+  index: z.number().int().nonnegative().optional(),
+  name: z.string().optional(),
+}).describe("Command to group existing nodes by id, optionally into a specific parent and position");
+
+const UngroupNodeZ = z.object({
+  type: z.enum(["ungroup-node"]),
+  id: z.string(),
+}).describe("Command to ungroup a group node");
+
+const SetParentZ = z.object({
+  type: z.enum(["set-parent"]),
+  nodeIds: z.array(z.string()).min(1),
+  parentId: z.string(),
+  index: z.number().int().nonnegative().optional(),
+}).describe("Command to move nodes into a target parent container");
+
 // Main Command Union Type
 export const CommandZ = z.discriminatedUnion("type", [
   CreateNodeZ,
@@ -416,7 +438,10 @@ export const CommandZ = z.discriminatedUnion("type", [
   GetLayerVisualZ,
   GetCurrentPageNodeZ,
   GetLibraryComponentsInFileZ,
-  ImportLibraryComponentByKeyZ
+  ImportLibraryComponentByKeyZ,
+  GroupNodesZ,
+  UngroupNodeZ,
+  SetParentZ
 ]).describe("Union of all possible Figma commands");
 
 // Execute command schemas
